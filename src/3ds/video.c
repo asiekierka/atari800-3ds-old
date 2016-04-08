@@ -156,9 +156,9 @@ void N3DS_InitTexture(void)
 		tex = sf2d_create_texture(512, 512, TEXFMT_RGBA8, SF2D_PLACE_RAM);
 		texBuf = linearAlloc((tex->pow2_w * tex->pow2_h) << 2);
 
-		kbd_display = sfil_load_PNG_file("romfs:/kbd_display.png", SF2D_PLACE_VRAM);
-		kbd_ctrl_pressed = sfil_load_PNG_file("romfs:/kbd_ctrl_pressed.png", SF2D_PLACE_VRAM);
-		kbd_shift_pressed = sfil_load_PNG_file("romfs:/kbd_shift_pressed.png", SF2D_PLACE_VRAM);
+		kbd_display = sfil_load_PNG_file("romfs:/kbd_display.png", SF2D_PLACE_RAM);
+		kbd_ctrl_pressed = sfil_load_PNG_file("romfs:/kbd_ctrl_pressed.png", SF2D_PLACE_RAM);
+		kbd_shift_pressed = sfil_load_PNG_file("romfs:/kbd_shift_pressed.png", SF2D_PLACE_RAM);
 		texInitialized = 1;
 	}
 }

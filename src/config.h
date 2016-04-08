@@ -32,7 +32,7 @@
 /* #undef CURSES_BASIC */
 
 /* Alternate config filename due to 8+3 fs limit. */
-#define DEFAULT_CFG_NAME "/atari800/atari800.cfg"
+#define DEFAULT_CFG_NAME "/3ds/atari800/atari800.cfg"
 
 /* Target: Windows with DirectX. */
 /* #undef DIRECTX */

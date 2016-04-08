@@ -31,7 +31,7 @@
 #include "platform.h"
 #include "sound.h"
 
-#define EMULATOR
+/* #define EMULATOR */
 /* #define SOUND_DEBUG */
 
 int N3DS_soundFreq;
@@ -46,14 +46,7 @@ int PLATFORM_SoundSetup(Sound_setup_t *setup)
 
 	if (setup->frag_frames == 0)
 	{
-		/* Set frag_frames automatically. */
-		unsigned int val = setup->frag_frames = setup->freq / 50;
-		unsigned int pow_val = 1;
-		while (val >>= 1)
-			pow_val <<= 1;
-		if (pow_val < setup->frag_frames)
-			pow_val <<= 1;
-		setup->frag_frames = pow_val;
+		setup->frag_frames = 4096;
 	}
 
 	N3DS_fragFrames = setup->frag_frames;

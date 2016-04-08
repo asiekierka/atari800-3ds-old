@@ -418,7 +418,7 @@ int Atari800_Initialise(int *argc, char *argv[])
 	}
 
 #if defined(_3DS)
-	SYSROM_FindInDir("/atari800", FALSE); /* current directory */
+	SYSROM_FindInDir("/3ds/atari800", FALSE); /* current directory */
 #endif
 
 #ifndef ANDROID

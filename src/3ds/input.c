@@ -89,12 +89,14 @@ int PLATFORM_Keyboard(void)
 			return AKEY_WARMSTART;
 	}
 
+	INPUT_key_consol = INPUT_CONSOL_NONE;
+
 	if (kHeld & KEY_START)
-		INPUT_key_consol ^= INPUT_CONSOL_START;
+		INPUT_key_consol &= ~INPUT_CONSOL_START;
 	if (kHeld & KEY_SELECT)
-		INPUT_key_consol ^= INPUT_CONSOL_SELECT;
+		INPUT_key_consol &= ~INPUT_CONSOL_SELECT;
 	if (kHeld & KEY_R)
-		INPUT_key_consol ^= INPUT_CONSOL_OPTION;
+		INPUT_key_consol &= ~INPUT_CONSOL_OPTION;
 	if (kHeld & KEY_B)
 		return AKEY_RETURN;
 	if (kHeld & KEY_Y)
@@ -110,54 +112,58 @@ int PLATFORM_Keyboard(void)
 	if (kHeld & KEY_DDOWN)
 		return AKEY_DOWN;
 
-	if (kDown & KEY_TOUCH)
+	if ((kDown | kHeld) & KEY_TOUCH)
 	{
 		hidTouchRead(&pos);
 		kMapping = (u32*) kbd_mapping_bin;
 		if (pos.px >= 0 && pos.px < 320 && pos.py >= 0 && pos.py < 240)
 		{
 			posPixel = kMapping[pos.py * 320 + pos.px] & 0xFFFFFF;
-			if ((posPixel & 0xff00ff) == 0)
+			if (kDown & KEY_TOUCH)
 			{
-				int val = (posPixel >> 10) | (INPUT_key_shift != 0 ? AKEY_SHFT : 0)
-					| (key_control != 0 ? AKEY_CTRL : 0);
-
-				if (INPUT_key_shift != 0 || key_control != 0)
+				if ((posPixel & 0xff00ff) == 0)
 				{
-					INPUT_key_shift = 0;
-					key_control = 0;
-					PLATFORM_DisplayScreen();
+					int val = (posPixel >> 10) | (INPUT_key_shift != 0 ? AKEY_SHFT : 0)
+						| (key_control != 0 ? AKEY_CTRL : 0);
+
+					if (INPUT_key_shift != 0 || key_control != 0)
+					{
+						INPUT_key_shift = 0;
+						key_control = 0;
+						PLATFORM_DisplayScreen();
+					}
+
+					return val;
 				}
 
-				return val;
+				if (posPixel == 0xff00ff || posPixel == 0x7f007f)
+					if (INPUT_key_shift != 0 || key_control != 0)
+					{
+						INPUT_key_shift = 0;
+						key_control = 0;
+						PLATFORM_DisplayScreen();
+					}
+
+				if (posPixel == 0x8080ff)
+				{
+					key_control = 1;
+					PLATFORM_DisplayScreen();
+				}
+				if (posPixel == 0xa0a0ff)
+				{
+					INPUT_key_shift = 1;
+					PLATFORM_DisplayScreen();
+				}
+				if (posPixel == 0xe0e0ff)
+					return AKEY_BREAK;
 			}
-
-			if (posPixel == 0xff00ff || posPixel == 0x7f007f)
-				if (INPUT_key_shift != 0 || key_control != 0)
-				{
-					INPUT_key_shift = 0;
-					key_control = 0;
-					PLATFORM_DisplayScreen();
-				}
 
 			if (posPixel == 0x2020ff)
-				INPUT_key_consol ^= INPUT_CONSOL_START;
+				INPUT_key_consol &= ~INPUT_CONSOL_START;
 			if (posPixel == 0x4040ff)
-				INPUT_key_consol ^= INPUT_CONSOL_SELECT;
+				INPUT_key_consol &= ~INPUT_CONSOL_SELECT;
 			if (posPixel == 0x6060ff)
-				INPUT_key_consol ^= INPUT_CONSOL_OPTION;
-			if (posPixel == 0x8080ff)
-			{
-				key_control = 1;
-				PLATFORM_DisplayScreen();
-			}
-			if (posPixel == 0xa0a0ff)
-			{
-				INPUT_key_shift = 1;
-				PLATFORM_DisplayScreen();
-			}
-			if (posPixel == 0xe0e0ff)
-				return AKEY_BREAK;
+				INPUT_key_consol &= ~INPUT_CONSOL_OPTION;
 		}
 	}
 
