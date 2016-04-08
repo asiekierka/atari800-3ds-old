@@ -1,8 +1,8 @@
 /*
- * sdl/main.c - SDL library specific port code - main interface
+ * 3ds/main.c - Nintendo 3DS port main code
  *
  * Copyright (c) 2001-2002 Jacek Poplawski
- * Copyright (C) 2001-2014 Atari800 development team (see DOC/CREDITS)
+ * Copyright (C) 2001-2016 Atari800 development team (see DOC/CREDITS)
  *
  * This file is part of the Atari800 emulator project which emulates
  * the Atari 400, 800, 800XL, 130XE, and 5200 8-bit computers.
@@ -22,15 +22,6 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-/*
-   Thanks to David Olofson for scaling tips!
-
-   TODO:
-   - implement all Atari800 parameters
-   - turn off fullscreen when error happen
-*/
-
-#include "config.h"
 #include <3ds.h>
 #include <sf2d.h>
 #include <stdio.h>
@@ -38,6 +29,7 @@
 
 /* Atari800 includes */
 #include "atari.h"
+#include "config.h"
 #include "../input.h"
 #include "log.h"
 #include "monitor.h"
@@ -45,23 +37,16 @@
 #ifdef SOUND
 #include "../sound.h"
 #endif
-#ifdef USE_UI_BASIC_ONSCREEN_KEYBOARD
-#include "akey.h"
-#include "ui_basic.h"
-#endif
 #include "videomode.h"
 
 int PLATFORM_Configure(char *option, char *parameters)
 {
 	return 0;
-	/* return SDL_VIDEO_ReadConfig(option, parameters) ||
-	       SDL_INPUT_ReadConfig(option, parameters); */
 }
 
 void PLATFORM_ConfigSave(FILE *fp)
 {
-	/* SDL_VIDEO_WriteConfig(fp);
-	SDL_INPUT_WriteConfig(fp); */
+
 }
 
 int PLATFORM_Initialise(int *argc, char *argv[])
@@ -89,6 +74,7 @@ int PLATFORM_Exit(int run_monitor)
 		return 1;
 	} else {
 		gfxExit();
+		romfsExit();
 	}
 
 	return 0;
@@ -96,23 +82,21 @@ int PLATFORM_Exit(int run_monitor)
 
 int main(int argc, char **argv)
 {
-	osSetSpeedupEnable(true);
+	romfsInit();
+
 	aptOpenSession();
-	APT_SetAppCpuTimeLimit(80); // enables syscore usage
+	APT_SetAppCpuTimeLimit(80);
 	aptCloseSession();
 
-	/* initialise platform early on for console debug */
-	//gfxInit(GSP_RGBA8_OES, GSP_BGR8_OES, false);
-	//gfxSet3D(false);
 	sf2d_init();
-	//consoleInit(GFX_BOTTOM, NULL);
-	//gfxSetDoubleBuffering(GFX_TOP, true);
+	// consoleInit(GFX_BOTTOM, NULL);
 
-	/* initialise Atari800 core */
 	if (!Atari800_Initialise(&argc, argv))
-		return 3;
+	{
+		printf("Atari initialisation failed!");
+		return 0;
+	}
 
-	/* main loop */
 	while (aptMainLoop()) {
 		INPUT_key_code = PLATFORM_Keyboard();
 		Atari800_Frame();

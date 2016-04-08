@@ -1,8 +1,8 @@
 /*
- * sdl/sound.c - SDL library specific port code - sound output
+ * 3ds/sound_ndsp.c - Nintendo 3DS NDSP audio backend
  *
  * Copyright (c) 2001-2002 Jacek Poplawski
- * Copyright (C) 2001-2013 Atari800 development team (see DOC/CREDITS)
+ * Copyright (C) 2001-2016 Atari800 development team (see DOC/CREDITS)
  *
  * This file is part of the Atari800 emulator project which emulates
  * the Atari 400, 800, 800XL, 130XE, and 5200 8-bit computers.
@@ -31,10 +31,8 @@
 #include "platform.h"
 #include "sound.h"
 
-//#define NO_NDSP true
-#define NO_NDSP false
-//#define DEBUG
-//#define FAKESOUND
+#define EMULATOR
+/* #define SOUND_DEBUG */
 
 int N3DS_soundFreq;
 ndspWaveBuf N3DS_audioBuf;
@@ -46,7 +44,8 @@ int PLATFORM_SoundSetup(Sound_setup_t *setup)
 {
 	setup->sample_size = 1;
 
-	if (setup->frag_frames == 0) {
+	if (setup->frag_frames == 0)
+	{
 		/* Set frag_frames automatically. */
 		unsigned int val = setup->frag_frames = setup->freq / 50;
 		unsigned int pow_val = 1;
@@ -63,7 +62,10 @@ int PLATFORM_SoundSetup(Sound_setup_t *setup)
 	N3DS_audioData = (u8*) linearAlloc(N3DS_fragFrames * N3DS_fragSize);
 	N3DS_ClearAudioData();
 
-	if (NO_NDSP || R_FAILED(ndspInit()))
+#ifdef EMULATOR
+	return FALSE;
+#else
+	if (R_FAILED(ndspInit()))
 	{
 		printf("NDSP initialization error!\n");
 		return FALSE;
@@ -73,6 +75,7 @@ int PLATFORM_SoundSetup(Sound_setup_t *setup)
 	PLATFORM_SoundContinue();
 
 	return TRUE;
+#endif
 }
 
 
@@ -124,7 +127,7 @@ void PLATFORM_SoundContinue(void)
 	N3DS_curSample = N3DS_fragFrames / 2;
 }
 
-#ifdef FAKESOUND
+#ifdef SOUND_DEBUG
 int psaflag = 0;
 
 unsigned int PLATFORM_SoundAvailable(void)
@@ -148,14 +151,12 @@ void PLATFORM_SoundWrite(UBYTE const *buffer, unsigned int size)
 	int toWrite = size / N3DS_fragSize;
 	int maxLen = N3DS_fragFrames;
 
-	while (written < toWrite) {
-		#ifdef DEBUG
-		printf("s:%lu %d/%d\n", N3DS_curSample, written, toWrite);
-		#endif
+	while (written < toWrite)
+	{
 		int canWrite = maxLen - N3DS_curSample;
-		if (canWrite > (toWrite - written)) {
+		if (canWrite > (toWrite - written))
 			canWrite = (toWrite - written);
-		}
+
 		memcpy(&N3DS_audioData[N3DS_curSample], &buffer[written], canWrite * N3DS_fragSize);
 		written += canWrite;
 		N3DS_curSample = (N3DS_curSample + canWrite) % maxLen;

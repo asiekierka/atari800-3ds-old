@@ -1,8 +1,8 @@
 /*
- * sdl/sound.c - SDL library specific port code - sound output
+ * 3ds/sound_null.c - Nintendo 3DS dummy audio backend
  *
  * Copyright (c) 2001-2002 Jacek Poplawski
- * Copyright (C) 2001-2013 Atari800 development team (see DOC/CREDITS)
+ * Copyright (C) 2001-2016 Atari800 development team (see DOC/CREDITS)
  *
  * This file is part of the Atari800 emulator project which emulates
  * the Atari 400, 800, 800XL, 130XE, and 5200 8-bit computers.

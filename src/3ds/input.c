@@ -1,8 +1,8 @@
 /*
- * sdl/input.c - SDL library specific port code - input device support
+ * 3ds/input.c - Nintendo 3DS input device support
  *
  * Copyright (c) 2001-2002 Jacek Poplawski
- * Copyright (C) 2001-2014 Atari800 development team (see DOC/CREDITS)
+ * Copyright (C) 2001-2016 Atari800 development team (see DOC/CREDITS)
  *
  * This file is part of the Atari800 emulator project which emulates
  * the Atari 400, 800, 800XL, 130XE, and 5200 8-bit computers.
@@ -26,20 +26,10 @@
 
 #include "config.h"
 #include "akey.h"
-#include "atari.h"
-#include "colours.h"
-#include "filter_ntsc.h"
 #include "input.h"
 #include "log.h"
 #include "platform.h"
-#include "pokey.h"
 #include "ui.h"
-#include "util.h"
-#include "videomode.h"
-#include "screen.h"
-#ifdef USE_UI_BASIC_ONSCREEN_KEYBOARD
-#include "ui_basic.h"
-#endif
 
 #include "kbd_mapping_bin.h"
 

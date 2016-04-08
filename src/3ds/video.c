@@ -1,8 +1,8 @@
 /*
- * sdl/video.c - SDL library specific port code - video display
+ * 3ds/video.c - Nintendo 3DS video backend
  *
  * Copyright (c) 2001-2002 Jacek Poplawski
- * Copyright (C) 2001-2010 Atari800 development team (see DOC/CREDITS)
+ * Copyright (C) 2001-2016 Atari800 development team (see DOC/CREDITS)
  *
  * This file is part of the Atari800 emulator project which emulates
  * the Atari 400, 800, 800XL, 130XE, and 5200 8-bit computers.
@@ -24,6 +24,7 @@
 
 #include <3ds.h>
 #include <sf2d.h>
+#include <sfil.h>
 
 #include "artifact.h"
 #include "atari.h"
@@ -40,17 +41,11 @@
 #include "util.h"
 #include "videomode.h"
 
-#include "kbd_ctrl_pressed_bin.h"
-#include "kbd_shift_pressed_bin.h"
-#include "kbd_display_bin.h"
-
 int texInitialized = 0;
 sf2d_texture *tex, *kbd_display, *kbd_ctrl_pressed, *kbd_shift_pressed;
 u32 *texBuf;
 VIDEOMODE_MODE_t N3DS_VIDEO_mode;
 int ctable[256];
-
-//#define NO_KEYBOARD_RENDER
 
 void PLATFORM_PaletteUpdate(void)
 {
@@ -91,20 +86,11 @@ void PLATFORM_MapRGB(void *dest, int const *palette, int size)
 
 static void UpdateNtscFilter(VIDEOMODE_MODE_t mode)
 {
-/*	if (mode != VIDEOMODE_MODE_NTSC_FILTER && FILTER_NTSC_emu != NULL) {
-		FILTER_NTSC_Delete(FILTER_NTSC_emu);
-		FILTER_NTSC_emu = NULL;
-		N3DS_VIDEO_PaletteUpdate();
-	}
-	else if (mode == VIDEOMODE_MODE_NTSC_FILTER && FILTER_NTSC_emu == NULL) {
-		FILTER_NTSC_emu = FILTER_NTSC_New();
-		FILTER_NTSC_Update(FILTER_NTSC_emu);
-	} */
+
 }
 
 void PLATFORM_SetVideoMode(VIDEOMODE_resolution_t const *res, int windowed, VIDEOMODE_MODE_t mode, int rotate90)
 {
-//	UpdateNtscFilter(mode);
 	N3DS_VIDEO_mode = mode;
 	N3DS_InitTexture();
 
@@ -134,7 +120,7 @@ VIDEOMODE_resolution_t *PLATFORM_DesktopResolution(void)
 
 int PLATFORM_SupportsVideomode(VIDEOMODE_MODE_t mode, int stretch, int rotate90)
 {
-	if (stretch != 0 || rotate90 != 0)
+	if (rotate90 != 0)
 		return false;
 
 	return mode == VIDEOMODE_MODE_NORMAL;
@@ -164,14 +150,15 @@ void N3DS_InitTexture(void)
 {
 	if (texInitialized == 0)
 	{
+		sf2d_swapbuffers();
 		sf2d_set_3D(0);
 
-		tex = sf2d_create_texture(Screen_WIDTH, Screen_HEIGHT, TEXFMT_RGBA8, SF2D_PLACE_RAM);
+		tex = sf2d_create_texture(512, 512, TEXFMT_RGBA8, SF2D_PLACE_RAM);
 		texBuf = linearAlloc((tex->pow2_w * tex->pow2_h) << 2);
 
-		kbd_display = sf2d_create_texture_mem_RGBA8(kbd_display_bin, 320, 240, TEXFMT_RGBA8, SF2D_PLACE_RAM);
-		kbd_ctrl_pressed = sf2d_create_texture_mem_RGBA8(kbd_ctrl_pressed_bin, 320, 240, TEXFMT_RGBA8, SF2D_PLACE_RAM);
-		kbd_shift_pressed = sf2d_create_texture_mem_RGBA8(kbd_shift_pressed_bin, 320, 240, TEXFMT_RGBA8, SF2D_PLACE_RAM);
+		kbd_display = sfil_load_PNG_file("romfs:/kbd_display.png", SF2D_PLACE_VRAM);
+		kbd_ctrl_pressed = sfil_load_PNG_file("romfs:/kbd_ctrl_pressed.png", SF2D_PLACE_VRAM);
+		kbd_shift_pressed = sfil_load_PNG_file("romfs:/kbd_shift_pressed.png", SF2D_PLACE_VRAM);
 		texInitialized = 1;
 	}
 }
@@ -180,29 +167,35 @@ void PLATFORM_DisplayScreen(void)
 {
 	u8 *src;
 	u32 *dest;
+	float xs, ys;
 
 	src = (u8*) Screen_atari;
 	src += Screen_WIDTH * VIDEOMODE_src_offset_top + VIDEOMODE_src_offset_left;
-	dest = &texBuf[VIDEOMODE_src_offset_top * tex->pow2_w + VIDEOMODE_src_offset_left];
+	dest = texBuf;
 
 	N3DS_InitTexture();
 
 #ifdef PAL_BLENDING
 	if (N3DS_VIDEO_mode == VIDEOMODE_MODE_NORMAL && ARTIFACT_mode == ARTIFACT_PAL_BLEND)
-	{
 		PAL_BLENDING_Blit32(dest, src, tex->pow2_w, VIDEOMODE_src_width, VIDEOMODE_src_height, VIDEOMODE_src_offset_top % 2);
-	} else
+	else
 #endif
 		N3DS_RenderNormal(src, dest);
-
-	//printf(".");
 
 	sf2d_start_frame(GFX_TOP, GFX_LEFT);
 	tex->tiled = 0;
 	sf2d_texture_tile32_hardware(tex, texBuf, tex->pow2_w, tex->pow2_h);
-	sf2d_draw_texture(tex, 8, 0);
+	if (VIDEOMODE_dest_width <= 400 && VIDEOMODE_dest_height <= 240 && VIDEOMODE_src_width == VIDEOMODE_dest_width && VIDEOMODE_src_height == VIDEOMODE_dest_height)
+			sf2d_draw_texture(tex, (400 - VIDEOMODE_dest_width) / 2, (240 - VIDEOMODE_dest_height) / 2);
+	else
+	{
+		xs = (float) VIDEOMODE_dest_width / VIDEOMODE_src_width;
+		ys = (float) VIDEOMODE_dest_height / VIDEOMODE_src_height;
+		sf2d_draw_texture_scale(tex, (400 - VIDEOMODE_dest_width) / 2, (240 - VIDEOMODE_dest_height) / 2, xs, ys);
+	}
 	sf2d_end_frame();
-#ifndef NO_KEYBOARD_RENDER
+
+	/* Keyboard rendering */
 	sf2d_start_frame(GFX_BOTTOM, GFX_LEFT);
 	sf2d_draw_texture(kbd_display, 0, 0);
 	if (INPUT_key_shift != 0)
@@ -210,6 +203,6 @@ void PLATFORM_DisplayScreen(void)
 	if (N3DS_IsControlPressed() != 0)
 		sf2d_draw_texture(kbd_ctrl_pressed, 0, 0);
 	sf2d_end_frame();
-#endif
+
 	sf2d_swapbuffers();
 }

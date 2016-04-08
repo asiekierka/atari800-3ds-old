@@ -31,7 +31,7 @@ TARGET		:=	$(notdir $(CURDIR))
 BUILD		:=	build
 #DATA		:=	data
 INCLUDES	:=	src
-#ROMFS		:=	romfs
+ROMFS		:=	src/3ds/romfs
 
 APP_TITLE=atari800
 APP_DESCRIPTION=test
@@ -44,10 +44,7 @@ ICON = src/3ds/gfx/icon.png
 #	src/xep80_fonts.c \
 
 GRAPHICS = \
-	src/3ds/gfx/kbd_ctrl_pressed.png \
-	src/3ds/gfx/kbd_shift_pressed.png \
 	src/3ds/gfx/kbd_mapping.png \
-	src/3ds/gfx/kbd_display.png \
 
 
 SOURCES = \
@@ -125,7 +122,7 @@ CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions -std=gnu++11
 ASFLAGS	:=	-g $(ARCH)
 LDFLAGS	=	-specs=3dsx.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
 
-LIBS := -lpng -lz -lsf2d -lctru -lm
+LIBS := -lsfil -lpng -lz -lsf2d -lctru -lm
 
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing
