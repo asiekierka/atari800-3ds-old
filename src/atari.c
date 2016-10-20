@@ -416,6 +416,11 @@ int Atari800_Initialise(int *argc, char *argv[])
 		}
 		*argc = j;
 	}
+
+#ifdef _3DS
+	SYSROM_FindInDir("/3ds/atari800", FALSE);
+#endif
+
 #ifndef ANDROID
 	got_config = CFG_LoadConfig(rtconfig_filename);
 #else

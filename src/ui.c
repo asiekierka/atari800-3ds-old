@@ -4019,7 +4019,7 @@ void UI_Run(void)
 		UI_MENU_ACTION(UI_MENU_MONITOR, "About AtariDC"),
 #elif defined(DIRECTX)
 		UI_MENU_ACTION_ACCEL(UI_MENU_MONITOR, monitor_label, "F8"),
-#else
+#elif !defined(_3DS)
 		UI_MENU_ACTION_ACCEL(UI_MENU_MONITOR, "Enter Monitor", "F8"),
 #endif
 		UI_MENU_ACTION_ACCEL(UI_MENU_ABOUT, "About the Emulator", "Alt+A"),
