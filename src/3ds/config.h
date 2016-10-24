@@ -5,7 +5,7 @@
 /* #undef AC_APPLE_UNIVERSAL_BUILD */
 
 /* The Austin Franklin 80 column card. */
-// #define AF80 1
+/* #undef AF80 */
 
 /* Target: Android */
 /* #undef ANDROID */
@@ -13,12 +13,14 @@
 /* Target: standard I/O. */
 /* #undef BASIC */
 
+/* The Bit3 Full View 80 column card. */
+/* #undef BIT3 */
+
 /* Define to use buffered debug output. */
 /* #undef BUFFERED_LOG */
 
 /* Define to allow sound clipping. */
-// #define CLIP_SOUND 1
-#undef CLIP_SOUND
+/* #undef CLIP_SOUND */
 
 /* Define to 1 if the `closedir' function returns void instead of `int'. */
 /* #undef CLOSEDIR_VOID */
@@ -112,10 +114,10 @@
 #define HAVE_GETCWD 1
 
 /* Define to 1 if you have the `gethostbyaddr' function. */
-/* #undef HAVE_GETHOSTBYADDR */
+#define HAVE_GETHOSTBYADDR 1
 
 /* Define to 1 if you have the `gethostbyname' function. */
-/* #undef HAVE_GETHOSTBYNAME */
+#define HAVE_GETHOSTBYNAME 1
 
 /* Define to 1 if you have the `gettimeofday' function. */
 #define HAVE_GETTIMEOFDAY 1
@@ -395,16 +397,16 @@
 #define PAL_BLENDING 1
 
 /* Define to emulate the Black Box. */
-#define PBI_BB 1
+// #define PBI_BB 1
 
 /* Define to emulate the MIO board. */
-#define PBI_MIO 1
+// #define PBI_MIO 1
 
 /* A prototype 80 column card for the 1090 expansion box. */
 // #define PBI_PROTO80 1
 
 /* Define to emulate the 1400XL/1450XLD. */
-#define PBI_XLD 1
+// #define PBI_XLD 1
 
 /* Platform-specific mapping of RGB palette to display surface. */
 #define PLATFORM_MAP_PALETTE 1

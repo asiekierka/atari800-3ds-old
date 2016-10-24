@@ -47,15 +47,6 @@ u32 *texBuf;
 VIDEOMODE_MODE_t N3DS_VIDEO_mode;
 int ctable[256];
 
-void PLATFORM_PaletteUpdate(void)
-{
-#ifdef PAL_BLENDING
-	if (N3DS_VIDEO_mode == VIDEOMODE_MODE_NORMAL && ARTIFACT_mode == ARTIFACT_PAL_BLEND)
-		PAL_BLENDING_UpdateLookup();
-#endif
-	N3DS_VIDEO_PaletteUpdate();
-}
-
 void N3DS_VIDEO_PaletteUpdate()
 {
 	int i;
@@ -64,6 +55,47 @@ void N3DS_VIDEO_PaletteUpdate()
 	{
 		ctable[i] = Colours_table[i] << 8 | 0xFF;
 	}
+}
+
+void N3DS_RenderNormal(u8 *src, u32 *dest)
+{
+	int x, y;
+	int spitch = Screen_WIDTH - VIDEOMODE_src_width;
+	int dpitch = 512 - VIDEOMODE_src_width;
+
+	for (y = 0; y < VIDEOMODE_src_height; y++) {
+		for (x = 0; x < VIDEOMODE_src_width; x++) {
+			*(dest++) = ctable[*(src++)];
+		}
+		src += spitch;
+		dest += dpitch;
+	}
+}
+
+void N3DS_InitTexture(void)
+{
+	if (texInitialized == 0)
+	{
+		sf2d_swapbuffers();
+		sf2d_set_3D(0);
+
+		tex = sf2d_create_texture(512, Screen_HEIGHT, TEXFMT_RGBA8, SF2D_PLACE_VRAM);
+		texBuf = linearAlloc((tex->tex.width * tex->tex.height) << 2);
+
+		kbd_display = sfil_load_PNG_file("romfs:/kbd_display.png", SF2D_PLACE_VRAM);
+		kbd_ctrl_pressed = sfil_load_PNG_file("romfs:/kbd_ctrl_pressed.png", SF2D_PLACE_VRAM);
+		kbd_shift_pressed = sfil_load_PNG_file("romfs:/kbd_shift_pressed.png", SF2D_PLACE_VRAM);
+		texInitialized = 1;
+	}
+}
+
+void PLATFORM_PaletteUpdate(void)
+{
+#ifdef PAL_BLENDING
+	if (N3DS_VIDEO_mode == VIDEOMODE_MODE_NORMAL && ARTIFACT_mode == ARTIFACT_PAL_BLEND)
+		PAL_BLENDING_UpdateLookup();
+#endif
+	N3DS_VIDEO_PaletteUpdate();
 }
 
 void PLATFORM_GetPixelFormat(PLATFORM_pixel_format_t *format)
@@ -131,38 +163,6 @@ int PLATFORM_WindowMaximised(void)
 	return 1;
 }
 
-void N3DS_RenderNormal(u8 *src, u32 *dest)
-{
-	int x, y;
-	int spitch = Screen_WIDTH - VIDEOMODE_src_width;
-	int dpitch = 512 - VIDEOMODE_src_width;
-
-	for (y = 0; y < VIDEOMODE_src_height; y++) {
-		for (x = 0; x < VIDEOMODE_src_width; x++) {
-			*(dest++) = ctable[*(src++)];
-		}
-		src += spitch;
-		dest += dpitch;
-	}
-}
-
-void N3DS_InitTexture(void)
-{
-	if (texInitialized == 0)
-	{
-		sf2d_swapbuffers();
-		sf2d_set_3D(0);
-
-		tex = sf2d_create_texture(512, 256, TEXFMT_RGBA8, SF2D_PLACE_RAM);
-		texBuf = linearAlloc(512 * 256 * 4);
-
-		kbd_display = sfil_load_PNG_file("romfs:/kbd_display.png", SF2D_PLACE_RAM);
-		kbd_ctrl_pressed = sfil_load_PNG_file("romfs:/kbd_ctrl_pressed.png", SF2D_PLACE_RAM);
-		kbd_shift_pressed = sfil_load_PNG_file("romfs:/kbd_shift_pressed.png", SF2D_PLACE_RAM);
-		texInitialized = 1;
-	}
-}
-
 void PLATFORM_DisplayScreen(void)
 {
 	u8 *src;
@@ -182,23 +182,43 @@ void PLATFORM_DisplayScreen(void)
 #endif
 		N3DS_RenderNormal(src, dest);
 
+	const u32 sdtFlags = (GX_TRANSFER_FLIP_VERT(1) | GX_TRANSFER_OUT_TILED(1) | GX_TRANSFER_RAW_COPY(0) |
+		GX_TRANSFER_IN_FORMAT(GX_TRANSFER_FMT_RGBA8) | GX_TRANSFER_OUT_FORMAT(GX_TRANSFER_FMT_RGBA8) |
+		GX_TRANSFER_SCALING(GX_TRANSFER_SCALE_NO));
+
+	GSPGPU_FlushDataCache(texBuf, 512 * 256 * 4);
+	GSPGPU_FlushDataCache(tex->tex.data, tex->tex.size);
+
+	C3D_SafeDisplayTransfer(texBuf, GX_BUFFER_DIM(512, 256), tex->tex.data,
+		GX_BUFFER_DIM(tex->tex.width, tex->tex.height), sdtFlags);
+
+	tex->tiled = 1;
+	gspWaitForPPF();
+
 	sf2d_start_frame(GFX_TOP, GFX_LEFT);
-	tex->tiled = 0;
-	sf2d_texture_tile32_hardware(tex, texBuf, 512, 256);
 	if (VIDEOMODE_dest_width <= 400 && VIDEOMODE_dest_height <= 240 && VIDEOMODE_src_width == VIDEOMODE_dest_width && VIDEOMODE_src_height == VIDEOMODE_dest_height)
+	{
 		sf2d_draw_texture_part(tex,
 			(400 - VIDEOMODE_dest_width) / 2, (240 - VIDEOMODE_dest_height) / 2,
 			0, 0, VIDEOMODE_dest_width, VIDEOMODE_dest_height
 		);
+//		sf2d_draw_texture(tex,
+//			(400 - VIDEOMODE_dest_width) / 2, (240 - VIDEOMODE_dest_height) / 2
+//		);
+	}
 	else
 	{
-		xs = (float) VIDEOMODE_dest_width / VIDEOMODE_src_width;
-		ys = (float) VIDEOMODE_dest_height / VIDEOMODE_src_height;
+		xs = (float) VIDEOMODE_dest_width / (float) VIDEOMODE_src_width;
+		ys = (float) VIDEOMODE_dest_height / (float) VIDEOMODE_src_height;
 		sf2d_draw_texture_part_scale(tex,
 			(400 - VIDEOMODE_dest_width) / 2, (240 - VIDEOMODE_dest_height) / 2,
 			0, 0, VIDEOMODE_src_width, VIDEOMODE_src_height,
 			xs, ys
 		);
+//		sf2d_draw_texture_scale(tex,
+//			(400 - VIDEOMODE_dest_width) / 2, (240 - VIDEOMODE_dest_height) / 2,
+//			xs, ys
+//		);
 	}
 	sf2d_end_frame();
 

@@ -90,6 +90,7 @@ int main(int argc, char **argv)
 
 	ptmSysmInit();
 	osSetSpeedupEnable(1);
+	APT_SetAppCpuTimeLimit(80);
 
 	sf2d_init();
 	// consoleInit(GFX_BOTTOM, NULL);

@@ -42,6 +42,7 @@ void N3DS_ClearAudioData(void);
 int PLATFORM_SoundSetup(Sound_setup_t *setup)
 {
 	setup->sample_size = 1;
+	setup->buffer_frames &= ~3;
 
 	if (setup->buffer_frames == 0)
 	{
@@ -65,17 +66,21 @@ int PLATFORM_SoundSetup(Sound_setup_t *setup)
 void N3DS_SoundCallback(void* dud)
 {
 	u32 pos = ndspChnGetSamplePos(0);
+	u32 flen = (N3DS_bufferSize * N3DS_sampleSize);
+	u32 fmax = flen >> 2;
 	if (pos >= N3DS_bufferSize && N3DS_lastPos < N3DS_bufferSize)
 	{
-		Sound_Callback(&N3DS_audioData[0], N3DS_bufferSize * N3DS_sampleSize);
-		for(int i = 0; i < N3DS_bufferSize * N3DS_sampleSize; i++)
-			N3DS_audioData[i] ^= 0x80;
+		Sound_Callback(&N3DS_audioData[0], flen);
+		u32* audioDataPtr = (u32*) &N3DS_audioData[0];
+		for(int i = 0; i < fmax; i++)
+			*(audioDataPtr++) ^= 0x80808080;
 	}
 	else if (pos < N3DS_bufferSize && N3DS_lastPos >= N3DS_bufferSize)
 	{
-		Sound_Callback(&N3DS_audioData[N3DS_bufferSize * N3DS_sampleSize], N3DS_bufferSize * N3DS_sampleSize);
-		for(int i = N3DS_bufferSize * N3DS_sampleSize; i < N3DS_bufferSize * N3DS_sampleSize * 2; i++)
-			N3DS_audioData[i] ^= 0x80;
+		Sound_Callback(&N3DS_audioData[flen], flen);
+		u32* audioDataPtr = (u32*) &N3DS_audioData[flen];
+		for(int i = 0; i < fmax; i++)
+			*(audioDataPtr++) ^= 0x80808080;
 	}
 	N3DS_lastPos = pos;
 }

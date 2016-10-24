@@ -34,12 +34,15 @@ INCLUDES	:=	src
 ROMFS		:=	src/3ds/romfs
 
 APP_TITLE=atari800
-APP_DESCRIPTION=\"Atari 8-bit computer emulator\"
+APP_DESCRIPTION=\"Atari 8-bit computer emulator (0.1.2)\"
 APP_AUTHOR=\"atari800 development team\"
 ICON = src/3ds/gfx/icon.png
 
 #	src/af80.c \
 #	src/pbi_proto80.c \
+#	src/pbi_bb.c \
+#	src/pbi_mio.c \
+#	src/pbi_xld.c \
 #	src/xep80.c \
 #	src/xep80_fonts.c \
 
@@ -79,10 +82,7 @@ SOURCES = \
 	src/mzpokeysnd.c \
 	src/pal_blending.c \
 	src/pbi.c \
-	src/pbi_bb.c \
-	src/pbi_mio.c \
 	src/pbi_scsi.c \
-	src/pbi_xld.c \
 	src/pia.c \
 	src/pokey.c \
 	src/pokeysnd.c \
@@ -111,7 +111,7 @@ SOURCES = \
 #---------------------------------------------------------------------------------
 ARCH	:=	-march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft
 
-CFLAGS	:=	-g -Wall -O2 -mword-relocations -D_GNU_SOURCE \
+CFLAGS	:=	-g -Wall -O2 -flto -mword-relocations -D_GNU_SOURCE \
 			-fomit-frame-pointer -ffunction-sections \
 			$(ARCH)
 
