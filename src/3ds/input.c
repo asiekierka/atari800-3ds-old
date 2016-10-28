@@ -23,21 +23,166 @@
 */
 
 #include <3ds.h>
+#include <sf2d.h>
 
 #include "config.h"
 #include "akey.h"
 #include "input.h"
+#include "input_3ds.h"
 #include "log.h"
 #include "platform.h"
 #include "ui.h"
 
-#include "kbd_mapping_bin.h"
-
 int key_control;
+int current_key_down = AKEY_NONE;
+u64 key_down_time = 0;
 
-int N3DS_IsControlPressed()
+#define WARMSTART_HOLD_TIME 3*1000
+
+touch_area_t N3DS_touch_areas_key[] = {
+	{ 2, 130, 22, 22, AKEY_ESCAPE, 0 },
+	{ 23, 130, 22, 22, AKEY_1, 0 },
+	{ 44, 130, 22, 22, AKEY_2, 0 },
+	{ 65, 130, 22, 22, AKEY_3, 0 },
+	{ 86, 130, 22, 22, AKEY_4, 0 },
+	{ 107, 130, 22, 22, AKEY_5, 0 },
+	{ 128, 130, 22, 22, AKEY_6, 0 },
+	{ 149, 130, 22, 22, AKEY_7, 0 },
+	{ 170, 130, 22, 22, AKEY_8, 0 },
+	{ 191, 130, 22, 22, AKEY_9, 0 },
+	{ 212, 130, 22, 22, AKEY_0, 0 },
+	{ 233, 130, 22, 22, AKEY_LESS, 0 },
+	{ 254, 130, 22, 22, AKEY_GREATER, 0 },
+	{ 275, 130, 22, 22, AKEY_BACKSPACE, 0 },
+	{ 296, 130, 22, 22, AKEY_BREAK, 0 },
+
+	{ 2, 151, 34, 22, AKEY_TAB, 0 },
+	{ 35, 151, 22, 22, AKEY_q, 0 },
+	{ 56, 151, 22, 22, AKEY_w, 0 },
+	{ 77, 151, 22, 22, AKEY_e, 0 },
+	{ 98, 151, 22, 22, AKEY_r, 0 },
+	{ 119, 151, 22, 22, AKEY_t, 0 },
+	{ 140, 151, 22, 22, AKEY_y, 0 },
+	{ 161, 151, 22, 22, AKEY_u, 0 },
+	{ 182, 151, 22, 22, AKEY_i, 0 },
+	{ 203, 151, 22, 22, AKEY_o, 0 },
+	{ 224, 151, 22, 22, AKEY_p, 0 },
+	{ 245, 151, 22, 22, AKEY_MINUS, 0 },
+	{ 266, 151, 22, 22, AKEY_EQUAL, 0 },
+	{ 287, 151, 31, 22, AKEY_RETURN, 0 },
+
+	{ 2, 172, 37, 22, AKEY_CTRL, 0 },
+	{ 38, 172, 22, 22, AKEY_a, 0 },
+	{ 59, 172, 22, 22, AKEY_s, 0 },
+	{ 80, 172, 22, 22, AKEY_d, 0 },
+	{ 101, 172, 22, 22, AKEY_f, 0 },
+	{ 122, 172, 22, 22, AKEY_g, 0 },
+	{ 143, 172, 22, 22, AKEY_h, 0 },
+	{ 164, 172, 22, 22, AKEY_j, 0 },
+	{ 185, 172, 22, 22, AKEY_k, 0 },
+	{ 206, 172, 22, 22, AKEY_l, 0 },
+	{ 227, 172, 22, 22, AKEY_SEMICOLON, 0 },
+	{ 248, 172, 22, 22, AKEY_PLUS, 0 },
+	{ 279, 172, 22, 22, AKEY_ASTERISK, 0 },
+	{ 290, 172, 28, 22, AKEY_CAPSTOGGLE, 0 },
+
+	{ 2, 193, 43, 22, AKEY_SHFT, 0 },
+	{ 44, 193, 22, 22, AKEY_z, 0 },
+	{ 65, 193, 22, 22, AKEY_x, 0 },
+	{ 86, 193, 22, 22, AKEY_c, 0 },
+	{ 107, 193, 22, 22, AKEY_v, 0 },
+	{ 128, 193, 22, 22, AKEY_b, 0 },
+	{ 159, 193, 22, 22, AKEY_n, 0 },
+	{ 170, 193, 22, 22, AKEY_m, 0 },
+	{ 191, 193, 22, 22, AKEY_COMMA, 0 },
+	{ 212, 193, 22, 22, AKEY_FULLSTOP, 0 },
+	{ 233, 193, 22, 22, AKEY_SLASH, 0 },
+	{ 254, 193, 43, 22, AKEY_SHFT, 0 },
+	{ 296, 193, 22, 22, AKEY_ATARI, 0 },
+
+	{ 64, 214, 190, 22, AKEY_SPACE, 0 },
+
+	{ 153, 98, 32, 16, AKEY_HELP, TA_FLAG_SLANTED },
+	{ 186, 98, 32, 16, AKEY_START, TA_FLAG_SLANTED },
+	{ 219, 98, 32, 16, AKEY_SELECT, TA_FLAG_SLANTED },
+	{ 252, 98, 32, 16, AKEY_OPTION, TA_FLAG_SLANTED },
+	{ 285, 98, 32, 16, AKEY_WARMSTART, TA_FLAG_SLANTED }
+};
+
+#define N3DS_TOUCH_AREA_MAX (sizeof(N3DS_touch_areas_key) / sizeof(touch_area_t))
+
+bool N3DS_IsControlPressed()
 {
-	return key_control;
+	return key_control != 0;
+}
+
+static bool isKeyTouched(touchPosition* pos, touch_area_t* area)
+{
+	if (area->flags & TA_FLAG_SLANTED)
+	{
+		if (pos->py >= area->y && pos->py < (area->y + area->h))
+		{
+			int slx = pos->px + (pos->py - area->y);
+			return slx >= area->x && slx < (area->x + area->w);
+		}
+
+		return false;
+	} else
+	{
+		return pos->px >= area->x && pos->py >= area->y
+			&& pos->px < (area->x + area->w)
+			&& pos->py < (area->y + area->h);
+	}
+}
+
+void N3DS_DrawKeyboard(sf2d_texture *tex)
+{
+	touch_area_t* keyTable = N3DS_touch_areas_key;
+	int keyTableLen = N3DS_TOUCH_AREA_MAX;
+
+	touchPosition pos;
+	bool isTouch = ((hidKeysDown() | hidKeysHeld()) & KEY_TOUCH) != 0;
+
+	sf2d_draw_texture_part(tex, 0, 0, 0, 0, 320, 240);
+
+	if (INPUT_key_shift != 0)
+	{
+		sf2d_draw_texture_part(tex, 2, 194, 322, 194, 43, 22);
+		sf2d_draw_texture_part(tex, 254, 194, 574, 194, 43, 22);
+	}
+
+	if (N3DS_IsControlPressed())
+	{
+		sf2d_draw_texture_part(tex, 2, 172, 322, 172, 37, 22);
+	}
+
+	int key_down = current_key_down;
+	if (key_down == AKEY_SHFT || key_down == AKEY_CTRL) key_down = AKEY_NONE;
+	if (key_down >= 0) key_down &= ~AKEY_SHFTCTRL;
+
+	hidTouchRead(&pos);
+	for (int i = 0; i < keyTableLen; i++)
+	{
+		touch_area_t* area = &keyTable[i];
+		if (key_down == area->keycode
+			|| (isTouch && (
+				(area->keycode == AKEY_START) ||
+				(area->keycode == AKEY_SELECT) ||
+				(area->keycode == AKEY_OPTION)
+			) && isKeyTouched(&pos, area))
+		)
+		{
+			if (area->flags & TA_FLAG_SLANTED)
+			{
+				for (int i = 0; i < area->h; i++)
+					sf2d_draw_texture_part(tex, area->x - i, area->y + i,
+						area->x + 320 - i, area->y + i, area->w, 1);
+			}
+			else
+				sf2d_draw_texture_part(tex, area->x, area->y,
+					area->x + 320, area->y, area->w, area->h);
+		}
+	}
 }
 
 void PLATFORM_SetJoystickKey(int joystick, int direction, int value)
@@ -56,14 +201,27 @@ int PLATFORM_GetRawKey(void)
 int PLATFORM_Keyboard(void)
 {
 	u32 kDown, kHeld, kUp;
-	u32* kMapping;
 	touchPosition pos;
-	int posPixel;
+	int shiftctrl = (INPUT_key_shift != 0 ? AKEY_SHFT : 0) | (key_control != 0 ? AKEY_CTRL : 0);
 
 	hidScanInput();
 	kDown = hidKeysDown();
 	kHeld = hidKeysHeld();
 	kUp = hidKeysUp();
+
+	// reset
+	INPUT_key_consol = INPUT_CONSOL_NONE;
+
+	if (kUp & KEY_TOUCH)
+	{
+		if (current_key_down != AKEY_CTRL && current_key_down != AKEY_SHFT)
+		{
+			INPUT_key_shift = 0;
+			key_control = 0;
+		}
+		current_key_down = AKEY_NONE;
+		PLATFORM_DisplayScreen();
+	}
 
 	if (UI_is_active)
 	{
@@ -89,85 +247,137 @@ int PLATFORM_Keyboard(void)
 			return AKEY_WARMSTART;
 	}
 
-	INPUT_key_consol = INPUT_CONSOL_NONE;
-
-	if (kHeld & KEY_START)
-		INPUT_key_consol &= ~INPUT_CONSOL_START;
-	if (kHeld & KEY_SELECT)
-		INPUT_key_consol &= ~INPUT_CONSOL_SELECT;
-	if (kHeld & KEY_R)
-		INPUT_key_consol &= ~INPUT_CONSOL_OPTION;
-	if (kHeld & KEY_B)
-		return AKEY_RETURN;
-	if (kHeld & KEY_Y)
-		return AKEY_SPACE;
-	if (kHeld & KEY_L)
-		return AKEY_UI;
-	if (kHeld & KEY_DUP)
-		return AKEY_UP;
-	if (kHeld & KEY_DLEFT)
-		return AKEY_LEFT;
-	if (kHeld & KEY_DRIGHT)
-		return AKEY_RIGHT;
-	if (kHeld & KEY_DDOWN)
-		return AKEY_DOWN;
+	if (Atari800_machine_type == Atari800_MACHINE_5200) {
+		if (kHeld & KEY_START)
+			return AKEY_5200_START;
+		if (kHeld & KEY_SELECT)
+			return AKEY_5200_PAUSE;
+		if (kHeld & KEY_R)
+			return AKEY_5200_RESET;
+		if (kHeld & KEY_L)
+			return AKEY_UI;
+	} else
+	{
+		if (kHeld & KEY_START)
+			INPUT_key_consol &= ~INPUT_CONSOL_START;
+		if (kHeld & KEY_SELECT)
+			INPUT_key_consol &= ~INPUT_CONSOL_SELECT;
+		if (kHeld & KEY_R)
+			INPUT_key_consol &= ~INPUT_CONSOL_OPTION;
+		if (kHeld & KEY_B)
+			return AKEY_RETURN;
+		if (kHeld & KEY_Y)
+			return AKEY_SPACE;
+		if (kHeld & KEY_L)
+			return AKEY_UI;
+		if (kHeld & KEY_DUP)
+			return AKEY_UP;
+		if (kHeld & KEY_DLEFT)
+			return AKEY_LEFT;
+		if (kHeld & KEY_DRIGHT)
+			return AKEY_RIGHT;
+		if (kHeld & KEY_DDOWN)
+			return AKEY_DOWN;
+	}
 
 	if ((kDown | kHeld) & KEY_TOUCH)
 	{
 		hidTouchRead(&pos);
-		kMapping = (u32*) kbd_mapping_bin;
-		if (pos.px >= 0 && pos.px < 320 && pos.py >= 0 && pos.py < 240)
+		touch_area_t* keyTable = N3DS_touch_areas_key;
+		int keyTableLen = N3DS_TOUCH_AREA_MAX;
+		bool down = (kDown & KEY_TOUCH) != 0;
+		bool touching = ((kDown | kHeld) & KEY_TOUCH) != 0;
+		bool refresh = false;
+
+		if (down) current_key_down = AKEY_NONE;
+
+		for (int i = 0; i < keyTableLen; i++)
 		{
-			posPixel = kMapping[pos.py * 320 + pos.px] & 0xFFFFFF;
-			if (kDown & KEY_TOUCH)
+			touch_area_t* area = &keyTable[i];
+			if (isKeyTouched(&pos, area))
 			{
-				if ((posPixel & 0xff00ff) == 0)
+				refresh |= down;
+				switch (area->keycode)
 				{
-					int val = (posPixel >> 10) | (INPUT_key_shift != 0 ? AKEY_SHFT : 0)
-						| (key_control != 0 ? AKEY_CTRL : 0);
-
-					if (INPUT_key_shift != 0 || key_control != 0)
-					{
-						INPUT_key_shift = 0;
-						key_control = 0;
-						PLATFORM_DisplayScreen();
-					}
-
-					return val;
+					case AKEY_SHFT:
+						if (down)
+						{
+							INPUT_key_shift = 1;
+							PLATFORM_DisplayScreen();
+							current_key_down = AKEY_SHFT;
+						}
+						break;
+					case AKEY_CTRL:
+						if (down)
+						{
+							key_control = 1;
+							PLATFORM_DisplayScreen();
+							current_key_down = AKEY_CTRL;
+						}
+						break;
+					case AKEY_START:
+						if (touching) INPUT_key_consol &= ~INPUT_CONSOL_START;
+						break;
+					case AKEY_SELECT:
+						if (touching) INPUT_key_consol &= ~INPUT_CONSOL_SELECT;
+						break;
+					case AKEY_OPTION:
+						if (touching) INPUT_key_consol &= ~INPUT_CONSOL_OPTION;
+						break;
+					case AKEY_WARMSTART:
+						if (down)
+						{
+							key_down_time = osGetTime();
+							current_key_down = AKEY_WARMSTART;
+							break;
+						} else if (touching && (osGetTime() - key_down_time) > WARMSTART_HOLD_TIME)
+						{
+							return AKEY_WARMSTART;
+						}
+					default:
+						if (down) current_key_down = area->keycode >= 0
+							? (area->keycode | shiftctrl)
+							: area->keycode;
+						break;
 				}
-
-				if (posPixel == 0xff00ff || posPixel == 0x7f007f)
-					if (INPUT_key_shift != 0 || key_control != 0)
-					{
-						INPUT_key_shift = 0;
-						key_control = 0;
-						PLATFORM_DisplayScreen();
-					}
-
-				if (posPixel == 0x8080ff)
-				{
-					key_control = 1;
-					PLATFORM_DisplayScreen();
-				}
-				if (posPixel == 0xa0a0ff)
-				{
-					INPUT_key_shift = 1;
-					PLATFORM_DisplayScreen();
-				}
-				if (posPixel == 0xe0e0ff)
-					return AKEY_BREAK;
+				break;
 			}
-
-			if (posPixel == 0x2020ff)
-				INPUT_key_consol &= ~INPUT_CONSOL_START;
-			if (posPixel == 0x4040ff)
-				INPUT_key_consol &= ~INPUT_CONSOL_SELECT;
-			if (posPixel == 0x6060ff)
-				INPUT_key_consol &= ~INPUT_CONSOL_OPTION;
 		}
+
+		if (refresh) PLATFORM_DisplayScreen();
+		if (current_key_down == AKEY_SHFT || current_key_down == AKEY_CTRL || current_key_down == AKEY_WARMSTART)
+			return AKEY_NONE;
+		else
+			return current_key_down;
 	}
 
 	return AKEY_NONE;
+}
+
+int Atari_POT(int num)
+{
+	circlePosition pos;
+
+	if (Atari800_machine_type == Atari800_MACHINE_5200)
+	{
+		int cid = num >> 1;
+		int caxis = num & 1;
+		if (cid != 0)
+			return INPUT_joy_5200_center;
+
+		hidScanInput();
+		hidCircleRead(&pos);
+		int val = caxis ? pos.dy : pos.dx;
+		if (val == 0) return INPUT_joy_5200_center;
+		else if (val > 0) {
+			return (INPUT_joy_5200_max - INPUT_joy_5200_center) * val / 0x9C + INPUT_joy_5200_center;
+		} else {
+			return (INPUT_joy_5200_min - INPUT_joy_5200_center) * val / 0x9C + INPUT_joy_5200_center;
+		}
+	} else
+	{
+		return 228;
+	}
 }
 
 int PLATFORM_PORT(int num)

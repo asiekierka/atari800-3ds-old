@@ -625,7 +625,7 @@ void INPUT_Frame(void)
 	}
 	else {
 		for (i = 0; i < 4; i++) {
-#ifdef DREAMCAST
+#if defined(DREAMCAST) || defined(_3DS)
 			/* first get analog js data */
 			POKEY_POT_input[2 * i] = Atari_POT(2 * i);         /* x */
 			POKEY_POT_input[2 * i + 1] = Atari_POT(2 * i + 1); /* y */

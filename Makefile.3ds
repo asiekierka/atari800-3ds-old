@@ -34,28 +34,28 @@ INCLUDES	:=	src
 ROMFS		:=	src/3ds/romfs
 
 APP_TITLE=atari800
-APP_DESCRIPTION=\"Atari 8-bit computer emulator (0.1.2)\"
+APP_DESCRIPTION=\"Atari 8-bit computer emulator (0.2.0)\"
 APP_AUTHOR=\"atari800 development team\"
-ICON = src/3ds/gfx/icon.png
+ICON = src/3ds/banner/atari800-icon.png
 
 #	src/af80.c \
+#	src/bit3.c \
 #	src/pbi_proto80.c \
 #	src/pbi_bb.c \
 #	src/pbi_mio.c \
 #	src/pbi_xld.c \
 #	src/xep80.c \
 #	src/xep80_fonts.c \
+#	src/atari_ntsc/atari_ntsc.c \
+#	src/filter_ntsc.c \
 
-GRAPHICS = \
-	src/3ds/gfx/kbd_mapping.png \
-
+GRAPHICS =
 
 SOURCES = \
 	src/afile.c \
 	src/antic.c \
 	src/artifact.c \
 	src/atari.c \
-	src/atari_ntsc/atari_ntsc.c \
 	src/binload.c \
 	src/cartridge.c \
 	src/cassette.c \
@@ -71,7 +71,6 @@ SOURCES = \
 	src/devices.c \
 	src/emuos.c \
 	src/esc.c \
-	src/filter_ntsc.c \
 	src/gtia.c \
 	src/ide.c \
 	src/img_tape.c \
@@ -111,7 +110,7 @@ SOURCES = \
 #---------------------------------------------------------------------------------
 ARCH	:=	-march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft
 
-CFLAGS	:=	-g -Wall -O2 -flto -mword-relocations -D_GNU_SOURCE \
+CFLAGS	:=	-g -Wall -O3 -flto -mword-relocations -D_GNU_SOURCE \
 			-fomit-frame-pointer -ffunction-sections \
 			$(ARCH)
 

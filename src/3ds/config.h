@@ -370,7 +370,7 @@
 #define NONLINEAR_MIXING 1
 
 /* Use NTSC video filter. */
-#define NTSC_FILTER 1
+/* #undef NTSC_FILTER */
 
 /* Define to the address where bug reports for this package should be sent. */
 #define PACKAGE_BUGREPORT "pstehlik@sophics.cz"
@@ -517,7 +517,7 @@
 #define VOICEBOX 1
 
 /* Define to allow volume only sound. */
-/* #undef VOL_ONLY_SOUND */
+#define VOL_ONLY_SOUND 1
 
 /* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most
    significant byte first (like Motorola and SPARC, unlike Intel). */

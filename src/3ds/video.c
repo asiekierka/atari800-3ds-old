@@ -30,8 +30,8 @@
 #include "atari.h"
 #include "colours.h"
 #include "config.h"
-#include "filter_ntsc.h"
 #include "input.h"
+#include "input_3ds.h"
 #include "log.h"
 #ifdef PAL_BLENDING
 #include "pal_blending.h"
@@ -42,7 +42,7 @@
 #include "videomode.h"
 
 int texInitialized = 0;
-sf2d_texture *tex, *kbd_display, *kbd_ctrl_pressed, *kbd_shift_pressed;
+sf2d_texture *tex, *kbd_display;
 u32 *texBuf;
 VIDEOMODE_MODE_t N3DS_VIDEO_mode;
 int ctable[256];
@@ -79,12 +79,10 @@ void N3DS_InitTexture(void)
 		sf2d_swapbuffers();
 		sf2d_set_3D(0);
 
-		tex = sf2d_create_texture(512, Screen_HEIGHT, TEXFMT_RGBA8, SF2D_PLACE_VRAM);
-		texBuf = linearAlloc((tex->tex.width * tex->tex.height) << 2);
+		tex = sf2d_create_texture(512, 256, TEXFMT_RGBA8, SF2D_PLACE_RAM);
+		texBuf = linearAlloc(512 * 256 * 4);
 
-		kbd_display = sfil_load_PNG_file("romfs:/kbd_display.png", SF2D_PLACE_VRAM);
-		kbd_ctrl_pressed = sfil_load_PNG_file("romfs:/kbd_ctrl_pressed.png", SF2D_PLACE_VRAM);
-		kbd_shift_pressed = sfil_load_PNG_file("romfs:/kbd_shift_pressed.png", SF2D_PLACE_VRAM);
+		kbd_display = sfil_load_PNG_file("romfs:/kbd_display.png", SF2D_PLACE_RAM);
 		texInitialized = 1;
 	}
 }
@@ -116,10 +114,10 @@ void PLATFORM_MapRGB(void *dest, int const *palette, int size)
 	}
 }
 
-static void UpdateNtscFilter(VIDEOMODE_MODE_t mode)
+/* static void UpdateNtscFilter(VIDEOMODE_MODE_t mode)
 {
 
-}
+} */
 
 void PLATFORM_SetVideoMode(VIDEOMODE_resolution_t const *res, int windowed, VIDEOMODE_MODE_t mode, int rotate90)
 {
@@ -182,18 +180,21 @@ void PLATFORM_DisplayScreen(void)
 #endif
 		N3DS_RenderNormal(src, dest);
 
+	GSPGPU_FlushDataCache(texBuf, 512 * 256 * 4);
+
 	const u32 sdtFlags = (GX_TRANSFER_FLIP_VERT(1) | GX_TRANSFER_OUT_TILED(1) | GX_TRANSFER_RAW_COPY(0) |
 		GX_TRANSFER_IN_FORMAT(GX_TRANSFER_FMT_RGBA8) | GX_TRANSFER_OUT_FORMAT(GX_TRANSFER_FMT_RGBA8) |
 		GX_TRANSFER_SCALING(GX_TRANSFER_SCALE_NO));
 
-	GSPGPU_FlushDataCache(texBuf, 512 * 256 * 4);
-	GSPGPU_FlushDataCache(tex->tex.data, tex->tex.size);
-
-	C3D_SafeDisplayTransfer(texBuf, GX_BUFFER_DIM(512, 256), tex->tex.data,
+	GX_DisplayTransfer(texBuf, GX_BUFFER_DIM(512, 256), tex->tex.data,
 		GX_BUFFER_DIM(tex->tex.width, tex->tex.height), sdtFlags);
 
-	tex->tiled = 1;
 	gspWaitForPPF();
+	tex->tiled = 1;
+
+	sf2d_start_frame(GFX_BOTTOM, GFX_LEFT);
+	N3DS_DrawKeyboard(kbd_display);
+	sf2d_end_frame();
 
 	sf2d_start_frame(GFX_TOP, GFX_LEFT);
 	if (VIDEOMODE_dest_width <= 400 && VIDEOMODE_dest_height <= 240 && VIDEOMODE_src_width == VIDEOMODE_dest_width && VIDEOMODE_src_height == VIDEOMODE_dest_height)
@@ -202,9 +203,6 @@ void PLATFORM_DisplayScreen(void)
 			(400 - VIDEOMODE_dest_width) / 2, (240 - VIDEOMODE_dest_height) / 2,
 			0, 0, VIDEOMODE_dest_width, VIDEOMODE_dest_height
 		);
-//		sf2d_draw_texture(tex,
-//			(400 - VIDEOMODE_dest_width) / 2, (240 - VIDEOMODE_dest_height) / 2
-//		);
 	}
 	else
 	{
@@ -215,20 +213,7 @@ void PLATFORM_DisplayScreen(void)
 			0, 0, VIDEOMODE_src_width, VIDEOMODE_src_height,
 			xs, ys
 		);
-//		sf2d_draw_texture_scale(tex,
-//			(400 - VIDEOMODE_dest_width) / 2, (240 - VIDEOMODE_dest_height) / 2,
-//			xs, ys
-//		);
 	}
-	sf2d_end_frame();
-
-	/* Keyboard rendering */
-	sf2d_start_frame(GFX_BOTTOM, GFX_LEFT);
-	sf2d_draw_texture(kbd_display, 0, 0);
-	if (INPUT_key_shift != 0)
-		sf2d_draw_texture(kbd_shift_pressed, 0, 0);
-	if (N3DS_IsControlPressed() != 0)
-		sf2d_draw_texture(kbd_ctrl_pressed, 0, 0);
 	sf2d_end_frame();
 
 	sf2d_swapbuffers();
