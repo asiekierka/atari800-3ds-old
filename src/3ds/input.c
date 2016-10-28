@@ -83,7 +83,7 @@ touch_area_t N3DS_touch_areas_key[] = {
 	{ 206, 172, 22, 22, AKEY_l, 0 },
 	{ 227, 172, 22, 22, AKEY_SEMICOLON, 0 },
 	{ 248, 172, 22, 22, AKEY_PLUS, 0 },
-	{ 279, 172, 22, 22, AKEY_ASTERISK, 0 },
+	{ 269, 172, 22, 22, AKEY_ASTERISK, 0 },
 	{ 290, 172, 28, 22, AKEY_CAPSTOGGLE, 0 },
 
 	{ 2, 193, 43, 22, AKEY_SHFT, 0 },
@@ -92,7 +92,7 @@ touch_area_t N3DS_touch_areas_key[] = {
 	{ 86, 193, 22, 22, AKEY_c, 0 },
 	{ 107, 193, 22, 22, AKEY_v, 0 },
 	{ 128, 193, 22, 22, AKEY_b, 0 },
-	{ 159, 193, 22, 22, AKEY_n, 0 },
+	{ 149, 193, 22, 22, AKEY_n, 0 },
 	{ 170, 193, 22, 22, AKEY_m, 0 },
 	{ 191, 193, 22, 22, AKEY_COMMA, 0 },
 	{ 212, 193, 22, 22, AKEY_FULLSTOP, 0 },
