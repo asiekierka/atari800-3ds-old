@@ -109,7 +109,29 @@ touch_area_t N3DS_touch_areas_key[] = {
 	{ 285, 98, 32, 16, AKEY_WARMSTART, TA_FLAG_SLANTED }
 };
 
-#define N3DS_TOUCH_AREA_MAX (sizeof(N3DS_touch_areas_key) / sizeof(touch_area_t))
+#define N3DS_TOUCH_AREA_KEY_MAX (sizeof(N3DS_touch_areas_key) / sizeof(touch_area_t))
+
+touch_area_t N3DS_touch_areas_5200[] = {
+	{ 95, 73, 38, 22, AKEY_5200_1, 0 },
+	{ 141, 73, 38, 22, AKEY_5200_2, 0 },
+	{ 187, 73, 38, 22, AKEY_5200_3, 0 },
+	{ 95, 109, 38, 22, AKEY_5200_4, 0 },
+	{ 141, 109, 38, 22, AKEY_5200_5, 0 },
+	{ 187, 109, 38, 22, AKEY_5200_6, 0 },
+	{ 95, 145, 38, 22, AKEY_5200_7, 0 },
+	{ 141, 145, 38, 22, AKEY_5200_8, 0 },
+	{ 187, 145, 38, 22, AKEY_5200_9, 0 },
+	{ 95, 181, 38, 22, AKEY_5200_ASTERISK, 0 },
+	{ 141, 181, 38, 22, AKEY_5200_0, 0 },
+	{ 187, 181, 38, 22, AKEY_5200_HASH, 0 }
+};
+
+#define N3DS_TOUCH_AREA_5200_MAX (sizeof(N3DS_touch_areas_5200) / sizeof(touch_area_t))
+
+#define N3DS_TOUCH_AREAS ((Atari800_machine_type == Atari800_MACHINE_5200 && !UI_is_active) \
+		? N3DS_touch_areas_5200 : N3DS_touch_areas_key)
+#define N3DS_TOUCH_AREA_MAX ((Atari800_machine_type == Atari800_MACHINE_5200 && !UI_is_active) \
+		? N3DS_TOUCH_AREA_5200_MAX : N3DS_TOUCH_AREA_KEY_MAX)
 
 bool N3DS_IsControlPressed()
 {
@@ -137,8 +159,14 @@ static bool isKeyTouched(touchPosition* pos, touch_area_t* area)
 
 void N3DS_DrawKeyboard(sf2d_texture *tex)
 {
-	touch_area_t* keyTable = N3DS_touch_areas_key;
+	touch_area_t* keyTable = N3DS_TOUCH_AREAS;
 	int keyTableLen = N3DS_TOUCH_AREA_MAX;
+
+	if (keyTable == N3DS_touch_areas_5200)
+	{
+		sf2d_draw_texture_part(tex, 0, 0, 640, 0, 320, 240);
+		return;
+	}
 
 	touchPosition pos;
 	bool isTouch = ((hidKeysDown() | hidKeysHeld()) & KEY_TOUCH) != 0;
@@ -245,9 +273,7 @@ int PLATFORM_Keyboard(void)
 			return AKEY_COLDSTART;
 		if (kDown & KEY_R)
 			return AKEY_WARMSTART;
-	}
-
-	if (Atari800_machine_type == Atari800_MACHINE_5200) {
+	} else if (Atari800_machine_type == Atari800_MACHINE_5200) {
 		if (kHeld & KEY_START)
 			return AKEY_5200_START;
 		if (kHeld & KEY_SELECT)
@@ -283,7 +309,7 @@ int PLATFORM_Keyboard(void)
 	if ((kDown | kHeld) & KEY_TOUCH)
 	{
 		hidTouchRead(&pos);
-		touch_area_t* keyTable = N3DS_touch_areas_key;
+		touch_area_t* keyTable = N3DS_TOUCH_AREAS;
 		int keyTableLen = N3DS_TOUCH_AREA_MAX;
 		bool down = (kDown & KEY_TOUCH) != 0;
 		bool touching = ((kDown | kHeld) & KEY_TOUCH) != 0;
@@ -386,14 +412,27 @@ int PLATFORM_PORT(int num)
 	if (num == 0) {
 		hidScanInput();
 		u32 kDown = hidKeysHeld();
-		if (kDown & KEY_CPAD_LEFT)
-			ret &= 0xf0 | INPUT_STICK_LEFT;
-		if (kDown & KEY_CPAD_RIGHT)
-			ret &= 0xf0 | INPUT_STICK_RIGHT;
-		if (kDown & KEY_CPAD_UP)
-			ret &= 0xf0 | INPUT_STICK_FORWARD;
-		if (kDown & KEY_CPAD_DOWN)
-			ret &= 0xf0 | INPUT_STICK_BACK;
+		if (Atari800_machine_type == Atari800_MACHINE_5200 && !UI_is_active)
+		{
+			if (kDown & KEY_LEFT)
+				ret &= 0xf0 | INPUT_STICK_LEFT;
+			if (kDown & KEY_RIGHT)
+				ret &= 0xf0 | INPUT_STICK_RIGHT;
+			if (kDown & KEY_UP)
+				ret &= 0xf0 | INPUT_STICK_FORWARD;
+			if (kDown & KEY_DOWN)
+				ret &= 0xf0 | INPUT_STICK_BACK;
+		} else
+		{
+			if (kDown & KEY_CPAD_LEFT)
+				ret &= 0xf0 | INPUT_STICK_LEFT;
+			if (kDown & KEY_CPAD_RIGHT)
+				ret &= 0xf0 | INPUT_STICK_RIGHT;
+			if (kDown & KEY_CPAD_UP)
+				ret &= 0xf0 | INPUT_STICK_FORWARD;
+			if (kDown & KEY_CPAD_DOWN)
+				ret &= 0xf0 | INPUT_STICK_BACK;
+		}
 	}
 	return ret;
 }
