@@ -79,7 +79,7 @@ void N3DS_InitTexture(void)
 		sf2d_swapbuffers();
 		sf2d_set_3D(0);
 
-		tex = sf2d_create_texture(512, 256, TEXFMT_RGBA8, SF2D_PLACE_RAM);
+		tex = sf2d_create_texture(512, 256, TEXFMT_RGBA8, SF2D_PLACE_VRAM);
 		texBuf = linearAlloc(512 * 256 * 4);
 
 		kbd_display = sfil_load_PNG_file("romfs:/kbd_display.png", SF2D_PLACE_RAM);
@@ -113,11 +113,6 @@ void PLATFORM_MapRGB(void *dest, int const *palette, int size)
 		target[i] = (palette[i] << 8) | 0xFF;
 	}
 }
-
-/* static void UpdateNtscFilter(VIDEOMODE_MODE_t mode)
-{
-
-} */
 
 void PLATFORM_SetVideoMode(VIDEOMODE_resolution_t const *res, int windowed, VIDEOMODE_MODE_t mode, int rotate90)
 {

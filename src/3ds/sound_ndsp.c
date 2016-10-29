@@ -65,19 +65,21 @@ int PLATFORM_SoundSetup(Sound_setup_t *setup)
 
 void N3DS_SoundCallback(void* dud)
 {
-	u32 flen = (N3DS_bufferSize * N3DS_sampleSize);
-
 	if (N3DS_audioBuf[N3DS_soundFillBlock].status == NDSP_WBUF_DONE) {
+		u32 flen = (N3DS_bufferSize * N3DS_sampleSize);
+		u32 ilen = flen >> 2;
+		u32* invbuf = (u32*) N3DS_audioBuf[N3DS_soundFillBlock].data_vaddr;
+
 		if (N3DS_sampleSize == 2)
 		{
 			Sound_Callback((u8*) N3DS_audioBuf[N3DS_soundFillBlock].data_pcm8, flen);
-			for(int i = 0; i < (flen >> 1); i++)
-				N3DS_audioBuf[N3DS_soundFillBlock].data_pcm16[i] ^= 0x8000;
+			for(int i = 0; i < ilen; i++)
+				invbuf[i] ^= 0x80008000;
 		} else
 		{
 			Sound_Callback((u8*) N3DS_audioBuf[N3DS_soundFillBlock].data_pcm8, flen);
-			for(int i = 0; i < flen; i++)
-				N3DS_audioBuf[N3DS_soundFillBlock].data_pcm8[i] ^= 0x80;
+			for(int i = 0; i < ilen; i++)
+				invbuf[i] ^= 0x80808080;
 		}
 
 		DSP_FlushDataCache(N3DS_audioBuf[N3DS_soundFillBlock].data_pcm8, flen);

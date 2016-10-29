@@ -248,7 +248,7 @@ int PLATFORM_Keyboard(void)
 			key_control = 0;
 		}
 		current_key_down = AKEY_NONE;
-		PLATFORM_DisplayScreen();
+		Atari800_display_screen = TRUE;
 	}
 
 	if (UI_is_active)
@@ -329,7 +329,7 @@ int PLATFORM_Keyboard(void)
 						if (down)
 						{
 							INPUT_key_shift = 1;
-							PLATFORM_DisplayScreen();
+							Atari800_display_screen = TRUE;
 							current_key_down = AKEY_SHFT;
 						}
 						break;
@@ -337,7 +337,7 @@ int PLATFORM_Keyboard(void)
 						if (down)
 						{
 							key_control = 1;
-							PLATFORM_DisplayScreen();
+							Atari800_display_screen = TRUE;
 							current_key_down = AKEY_CTRL;
 						}
 						break;
@@ -370,7 +370,7 @@ int PLATFORM_Keyboard(void)
 			}
 		}
 
-		if (refresh) PLATFORM_DisplayScreen();
+		if (refresh) Atari800_display_screen = TRUE;
 		if (current_key_down == AKEY_SHFT || current_key_down == AKEY_CTRL || current_key_down == AKEY_WARMSTART)
 			return AKEY_NONE;
 		else

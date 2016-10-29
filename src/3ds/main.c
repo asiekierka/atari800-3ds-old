@@ -95,7 +95,7 @@ int main(int argc, char **argv)
 	sf2d_init();
 	// consoleInit(GFX_BOTTOM, NULL);
 
-	// sane defaults...
+	// set config defaults
 	PLATFORM_IsNew3DS = PTMSYSM_CheckNew3DS();
 	POKEYSND_enable_new_pokey = PLATFORM_IsNew3DS;
 
