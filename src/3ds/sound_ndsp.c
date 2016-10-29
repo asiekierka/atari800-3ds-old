@@ -43,6 +43,7 @@ void N3DS_ClearAudioData(void);
 int PLATFORM_SoundSetup(Sound_setup_t *setup)
 {
 	setup->buffer_frames &= ~3;
+	setup->sample_size = 1;
 
 	if (setup->buffer_frames == 0)
 	{
