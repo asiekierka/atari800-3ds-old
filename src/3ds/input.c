@@ -35,6 +35,7 @@
 
 int key_control;
 int current_key_down = AKEY_NONE;
+int dpad_as_keyboard = 1;
 u64 key_down_time = 0;
 
 #define WARMSTART_HOLD_TIME 3*1000
@@ -296,14 +297,16 @@ int PLATFORM_Keyboard(void)
 			return AKEY_SPACE;
 		if (kHeld & KEY_L)
 			return AKEY_UI;
-		if (kHeld & KEY_DUP)
-			return AKEY_UP;
-		if (kHeld & KEY_DLEFT)
-			return AKEY_LEFT;
-		if (kHeld & KEY_DRIGHT)
-			return AKEY_RIGHT;
-		if (kHeld & KEY_DDOWN)
-			return AKEY_DOWN;
+		if (dpad_as_keyboard) {
+			if (kHeld & KEY_DUP)
+				return AKEY_UP;
+			if (kHeld & KEY_DLEFT)
+				return AKEY_LEFT;
+			if (kHeld & KEY_DRIGHT)
+				return AKEY_RIGHT;
+			if (kHeld & KEY_DDOWN)
+				return AKEY_DOWN;
+		}
 	}
 
 	if ((kDown | kHeld) & KEY_TOUCH)
@@ -394,11 +397,12 @@ int Atari_POT(int num)
 		hidScanInput();
 		hidCircleRead(&pos);
 		int val = caxis ? pos.dy : pos.dx;
-		if (val == 0) return INPUT_joy_5200_center;
-		else if (val > 0) {
+		if (val > 16) {
 			return (INPUT_joy_5200_max - INPUT_joy_5200_center) * val / 0x9C + INPUT_joy_5200_center;
-		} else {
+		} else if (val < -16) {
 			return (INPUT_joy_5200_min - INPUT_joy_5200_center) * val / 0x9C + INPUT_joy_5200_center;
+		} else {
+			return INPUT_joy_5200_center;
 		}
 	} else
 	{
@@ -412,7 +416,7 @@ int PLATFORM_PORT(int num)
 	if (num == 0) {
 		hidScanInput();
 		u32 kDown = hidKeysHeld();
-		if (Atari800_machine_type == Atari800_MACHINE_5200 && !UI_is_active)
+		if ((!dpad_as_keyboard || Atari800_machine_type == Atari800_MACHINE_5200) && !UI_is_active)
 		{
 			if (kDown & KEY_LEFT)
 				ret &= 0xf0 | INPUT_STICK_LEFT;
