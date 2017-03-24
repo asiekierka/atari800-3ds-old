@@ -23,7 +23,7 @@
 */
 
 #include <3ds.h>
-#include <sf2d.h>
+#include <citro3d.h>
 
 #include "config.h"
 #include "akey.h"
@@ -158,31 +158,31 @@ static bool isKeyTouched(touchPosition* pos, touch_area_t* area)
 	}
 }
 
-void N3DS_DrawKeyboard(sf2d_texture *tex)
+void N3DS_DrawKeyboard(C3D_Tex *tex)
 {
 	touch_area_t* keyTable = N3DS_TOUCH_AREAS;
 	int keyTableLen = N3DS_TOUCH_AREA_MAX;
 
 	if (keyTable == N3DS_touch_areas_5200)
 	{
-		sf2d_draw_texture_part(tex, 0, 0, 640, 0, 320, 240);
+		N3DS_DrawTexture(tex, 0, 0, 640, 0, 320, 240);
 		return;
 	}
 
 	touchPosition pos;
 	bool isTouch = ((hidKeysDown() | hidKeysHeld()) & KEY_TOUCH) != 0;
 
-	sf2d_draw_texture_part(tex, 0, 0, 0, 0, 320, 240);
+	N3DS_DrawTexture(tex, 0, 0, 0, 0, 320, 240);
 
 	if (INPUT_key_shift != 0)
 	{
-		sf2d_draw_texture_part(tex, 2, 194, 322, 194, 43, 22);
-		sf2d_draw_texture_part(tex, 254, 194, 574, 194, 43, 22);
+		N3DS_DrawTexture(tex, 2, 194, 322, 194, 43, 22);
+		N3DS_DrawTexture(tex, 254, 194, 574, 194, 43, 22);
 	}
 
 	if (N3DS_IsControlPressed())
 	{
-		sf2d_draw_texture_part(tex, 2, 172, 322, 172, 37, 22);
+		N3DS_DrawTexture(tex, 2, 172, 322, 172, 37, 22);
 	}
 
 	int key_down = current_key_down;
@@ -204,11 +204,11 @@ void N3DS_DrawKeyboard(sf2d_texture *tex)
 			if (area->flags & TA_FLAG_SLANTED)
 			{
 				for (int i = 0; i < area->h; i++)
-					sf2d_draw_texture_part(tex, area->x - i, area->y + i,
+					N3DS_DrawTexture(tex, area->x - i, area->y + i,
 						area->x + 320 - i, area->y + i, area->w, 1);
 			}
 			else
-				sf2d_draw_texture_part(tex, area->x, area->y,
+				N3DS_DrawTexture(tex, area->x, area->y,
 					area->x + 320, area->y, area->w, area->h);
 		}
 	}

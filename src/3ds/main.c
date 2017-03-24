@@ -23,7 +23,7 @@
 */
 
 #include <3ds.h>
-#include <sf2d.h>
+#include <citro3d.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -76,7 +76,8 @@ int PLATFORM_Exit(int run_monitor)
 	if (run_monitor) {
 		return 1;
 	} else {
-		sf2d_fini();
+		N3DS_ExitVideo();
+
 		ptmSysmExit();
 		romfsExit();
 	}
@@ -92,12 +93,11 @@ int main(int argc, char **argv)
 	osSetSpeedupEnable(1);
 	APT_SetAppCpuTimeLimit(80);
 
-	sf2d_init();
-	// consoleInit(GFX_BOTTOM, NULL);
-
 	// set config defaults
 	PLATFORM_IsNew3DS = PTMSYSM_CheckNew3DS();
 	POKEYSND_enable_new_pokey = PLATFORM_IsNew3DS;
+
+	N3DS_InitVideo();
 
 	if (!Atari800_Initialise(&argc, argv))
 	{

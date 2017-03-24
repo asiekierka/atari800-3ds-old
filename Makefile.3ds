@@ -34,7 +34,7 @@ INCLUDES	:=	src
 ROMFS		:=	src/3ds/romfs
 
 APP_TITLE=atari800
-APP_DESCRIPTION=\"Atari 8-bit computer emulator (0.2.1)\"
+APP_DESCRIPTION=\"Atari 8-bit computer emulator (0.3.0)\"
 APP_AUTHOR=\"atari800 development team\"
 ICON = src/3ds/banner/atari800-icon.png
 
@@ -100,10 +100,14 @@ SOURCES = \
 	src/voicebox.c \
 	src/votrax.c \
 	src/votraxsnd.c \
+	src/3ds/grapefruit.c \
 	src/3ds/input.c \
 	src/3ds/main.c \
 	src/3ds/sound_ndsp.c \
 	src/3ds/video.c
+
+SHADERS = \
+	src/3ds/shader.v.pica
 
 #---------------------------------------------------------------------------------
 # options for code generation
@@ -121,7 +125,7 @@ CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions -std=gnu++11
 ASFLAGS	:=	-g $(ARCH)
 LDFLAGS	=	-specs=3dsx.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
 
-LIBS := -lsfil -lpng -lz -lsf2d -lcitro3d -lctru -lm
+LIBS := -lpng -lz -lcitro3d -lctru -lm
 
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing
@@ -145,6 +149,7 @@ export VPATH	:=	$(CURDIR)
 export DEPSDIR	:=	
 
 CFILES		:=	$(foreach dir,$(SOURCES),$(CURDIR)/$(dir))
+PICAFILES	:=	$(foreach dir,$(SHADERS),$(CURDIR)/$(dir))
 PNGFILES	:=	$(foreach dir,$(GRAPHICS),$(CURDIR)/$(dir))
 
 export LD	:=	$(CC)

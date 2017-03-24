@@ -23,8 +23,6 @@
 */
 
 #include <3ds.h>
-#include <sf2d.h>
-#include <sfil.h>
 
 #include "artifact.h"
 #include "atari.h"
@@ -41,11 +39,18 @@
 #include "util.h"
 #include "videomode.h"
 
-int texInitialized = 0;
-sf2d_texture *tex, *kbd_display;
-u32 *texBuf;
+#include "grapefruit.h"
+#include "shader_shbin.h"
+
+static C3D_Tex tex, kbd_display;
+static C3D_Mtx proj_top, proj_bottom;
+static C3D_RenderBuf target_top, target_bottom;
+static struct ctr_shader_data shader;
+
+static u32 *texBuf;
 VIDEOMODE_MODE_t N3DS_VIDEO_mode;
-int ctable[256];
+static int ctable[256];
+
 
 void N3DS_VIDEO_PaletteUpdate()
 {
@@ -72,19 +77,50 @@ void N3DS_RenderNormal(u8 *src, u32 *dest)
 	}
 }
 
-void N3DS_InitTexture(void)
+void N3DS_InitVideo(void)
 {
-	if (texInitialized == 0)
-	{
-		sf2d_swapbuffers();
-		sf2d_set_3D(0);
+	C3D_TexEnv* texEnv;
 
-		tex = sf2d_create_texture(512, 256, TEXFMT_RGBA8, SF2D_PLACE_VRAM);
-		texBuf = linearAlloc(512 * 256 * 4);
+	gfxInitDefault();
+	gfxSet3D(false);
+	C3D_Init(C3D_DEFAULT_CMDBUF_SIZE);
 
-		kbd_display = sfil_load_PNG_file("romfs:/kbd_display.png", SF2D_PLACE_RAM);
-		texInitialized = 1;
-	}
+	C3D_RenderBufInit(&target_top, 240, 400, GPU_RB_RGB8, 0);
+	C3D_RenderBufInit(&target_bottom, 240, 320, GPU_RB_RGB8, 0);
+
+	C3D_TexInit(&tex, 512, 256, GPU_RGBA8);
+	texBuf = linearAlloc(512 * 256 * 4);
+
+	ctr_load_png(&kbd_display, "romfs:/kbd_display.png", TEXTURE_TARGET_VRAM);
+
+	ctr_init_shader(&shader, shader_shbin, shader_shbin_size);
+	AttrInfo_AddLoader(&(shader.attr), 0, GPU_FLOAT, 3); // v0 = position
+	AttrInfo_AddLoader(&(shader.attr), 1, GPU_FLOAT, 2); // v1 = texcoord
+	ctr_bind_shader(&shader);
+
+	Mtx_OrthoTilt(&proj_top, 0.0, 400.0, 0.0, 240.0, -1.0, 1.0, true);
+	Mtx_OrthoTilt(&proj_bottom, 0.0, 320.0, 0.0, 240.0, -1.0, 1.0, true);
+
+	texEnv = C3D_GetTexEnv(0);
+	C3D_TexEnvSrc(texEnv, C3D_Both, GPU_TEXTURE0, 0, 0);
+	C3D_TexEnvOp(texEnv, C3D_Both, 0, 0, 0);
+	C3D_TexEnvFunc(texEnv, C3D_Both, GPU_MODULATE);
+
+	C3D_DepthTest(true, GPU_GEQUAL, GPU_WRITE_ALL);
+}
+
+void N3DS_ExitVideo(void)
+{
+	linearFree(texBuf);
+
+	C3D_TexDelete(&kbd_display);
+	C3D_TexDelete(&tex);
+
+	C3D_RenderBufDelete(&target_top);
+	C3D_RenderBufDelete(&target_bottom);
+
+	C3D_Fini();
+	gfxExit();
 }
 
 void PLATFORM_PaletteUpdate(void)
@@ -117,10 +153,9 @@ void PLATFORM_MapRGB(void *dest, int const *palette, int size)
 void PLATFORM_SetVideoMode(VIDEOMODE_resolution_t const *res, int windowed, VIDEOMODE_MODE_t mode, int rotate90)
 {
 	N3DS_VIDEO_mode = mode;
-	N3DS_InitTexture();
 
 	PLATFORM_PaletteUpdate();
-	memset(texBuf, 0, tex->tex.width * tex->tex.height * 4);
+	memset(texBuf, 0, tex.width * tex.height * 4);
 	PLATFORM_DisplayScreen();
 }
 
@@ -156,21 +191,42 @@ int PLATFORM_WindowMaximised(void)
 	return 1;
 }
 
+void N3DS_DrawTexture(C3D_Tex* tex, int x, int y, int tx, int ty, int width, int height) {
+	float txmin, tymin, txmax, tymax;
+	txmin = (float) tx / tex->width;
+	tymax = (float) ty / tex->height;
+	txmax = (float) (tx+width) / tex->width;
+	tymin = (float) (ty+height) / tex->height;
+
+	C3D_TexBind(0, tex);
+	C3D_ImmDrawBegin(GPU_TRIANGLE_STRIP);
+		C3D_ImmSendAttrib((float) x, (float) 240 - y - height, 0.0f, 0.0f);
+		C3D_ImmSendAttrib((float) txmin, (float) tymin, 0.0f, 0.0f);
+
+		C3D_ImmSendAttrib((float) x + width, (float) 240 - y - height, 0.0f, 0.0f);
+		C3D_ImmSendAttrib((float) txmax, (float) tymin, 0.0f, 0.0f);
+
+		C3D_ImmSendAttrib((float) x, (float) 240 - y, 0.0f, 0.0f);
+		C3D_ImmSendAttrib((float) txmin, (float) tymax, 0.0f, 0.0f);
+
+		C3D_ImmSendAttrib((float) x + width, (float) 240 - y, 0.0f, 0.0f);
+		C3D_ImmSendAttrib((float) txmax, (float) tymax, 0.0f, 0.0f);
+	C3D_ImmDrawEnd();
+}
+
 void PLATFORM_DisplayScreen(void)
 {
 	u8 *src;
 	u32 *dest;
-	float xs, ys;
+	float xmin, ymin, xmax, ymax, txmin, tymin, txmax, tymax;
 
 	src = (u8*) Screen_atari;
 	src += Screen_WIDTH * VIDEOMODE_src_offset_top + VIDEOMODE_src_offset_left;
 	dest = texBuf;
 
-	N3DS_InitTexture();
-
 #ifdef PAL_BLENDING
 	if (N3DS_VIDEO_mode == VIDEOMODE_MODE_NORMAL && ARTIFACT_mode == ARTIFACT_PAL_BLEND)
-		PAL_BLENDING_Blit32(dest, src, tex->tex.width, VIDEOMODE_src_width, VIDEOMODE_src_height, VIDEOMODE_src_offset_top % 2);
+		PAL_BLENDING_Blit32(dest, src, tex.width, VIDEOMODE_src_width, VIDEOMODE_src_height, VIDEOMODE_src_offset_top % 2);
 	else
 #endif
 		N3DS_RenderNormal(src, dest);
@@ -181,35 +237,54 @@ void PLATFORM_DisplayScreen(void)
 		GX_TRANSFER_IN_FORMAT(GX_TRANSFER_FMT_RGBA8) | GX_TRANSFER_OUT_FORMAT(GX_TRANSFER_FMT_RGBA8) |
 		GX_TRANSFER_SCALING(GX_TRANSFER_SCALE_NO));
 
-	GX_DisplayTransfer(texBuf, GX_BUFFER_DIM(512, 256), tex->tex.data,
-		GX_BUFFER_DIM(tex->tex.width, tex->tex.height), sdtFlags);
+	GX_DisplayTransfer(texBuf, GX_BUFFER_DIM(512, 256), tex.data,
+		GX_BUFFER_DIM(tex.width, tex.height), sdtFlags);
 
 	gspWaitForPPF();
-	tex->tiled = 1;
 
-	sf2d_start_frame(GFX_BOTTOM, GFX_LEFT);
-	N3DS_DrawKeyboard(kbd_display);
-	sf2d_end_frame();
+	C3D_RenderBufClear(&target_bottom);
+	C3D_RenderBufBind(&target_bottom);
+	C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, shader.proj_loc, &proj_bottom);
+	C3D_TexBind(0, &kbd_display);
+	N3DS_DrawKeyboard(&kbd_display);
 
-	sf2d_start_frame(GFX_TOP, GFX_LEFT);
-	if (VIDEOMODE_dest_width <= 400 && VIDEOMODE_dest_height <= 240 && VIDEOMODE_src_width == VIDEOMODE_dest_width && VIDEOMODE_src_height == VIDEOMODE_dest_height)
-	{
-		sf2d_draw_texture_part(tex,
-			(400 - VIDEOMODE_dest_width) / 2, (240 - VIDEOMODE_dest_height) / 2,
-			0, 0, VIDEOMODE_dest_width, VIDEOMODE_dest_height
-		);
-	}
-	else
-	{
-		xs = (float) VIDEOMODE_dest_width / (float) VIDEOMODE_src_width;
-		ys = (float) VIDEOMODE_dest_height / (float) VIDEOMODE_src_height;
-		sf2d_draw_texture_part_scale(tex,
-			(400 - VIDEOMODE_dest_width) / 2, (240 - VIDEOMODE_dest_height) / 2,
-			0, 0, VIDEOMODE_src_width, VIDEOMODE_src_height,
-			xs, ys
-		);
-	}
-	sf2d_end_frame();
+	xmin = (400 - VIDEOMODE_dest_width) / 2.0f;
+	ymin = (240 - VIDEOMODE_dest_height) / 2.0f;
+	xmax = xmin + VIDEOMODE_dest_width;
+	ymax = ymin + VIDEOMODE_dest_height;
+	txmax = ((float) VIDEOMODE_src_width / tex.width);
+	txmin = 0.0f;
+	tymin = ((float) VIDEOMODE_src_height / tex.height);
+	tymax = 0.0f;
 
-	sf2d_swapbuffers();
+	C3D_RenderBufClear(&target_top);
+	C3D_RenderBufBind(&target_top);
+	C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, shader.proj_loc, &proj_top);
+
+	C3D_TexBind(0, &tex);
+	C3D_ImmDrawBegin(GPU_TRIANGLE_STRIP);
+		C3D_ImmSendAttrib(xmin, ymin, 0.0f, 0.0f);
+		C3D_ImmSendAttrib(txmin, tymin, 0.0f, 0.0f);
+
+		C3D_ImmSendAttrib(xmax, ymin, 0.0f, 0.0f);
+		C3D_ImmSendAttrib(txmax, tymin, 0.0f, 0.0f);
+
+		C3D_ImmSendAttrib(xmin, ymax, 0.0f, 0.0f);
+		C3D_ImmSendAttrib(txmin, tymax, 0.0f, 0.0f);
+
+		C3D_ImmSendAttrib(xmax, ymax, 0.0f, 0.0f);
+		C3D_ImmSendAttrib(txmax, tymax, 0.0f, 0.0f);
+	C3D_ImmDrawEnd();
+
+	C3D_Flush();
+
+	C3D_RenderBufTransfer(&target_top, (u32*) gfxGetFramebuffer(GFX_TOP, GFX_LEFT, NULL, NULL),
+		GX_TRANSFER_IN_FORMAT(GX_TRANSFER_FMT_RGB8) | GX_TRANSFER_OUT_FORMAT(GX_TRANSFER_FMT_RGB8));
+	C3D_RenderBufTransfer(&target_top, (u32*) gfxGetFramebuffer(GFX_TOP, GFX_RIGHT, NULL, NULL),
+		GX_TRANSFER_IN_FORMAT(GX_TRANSFER_FMT_RGB8) | GX_TRANSFER_OUT_FORMAT(GX_TRANSFER_FMT_RGB8));
+	C3D_RenderBufTransfer(&target_bottom, (u32*) gfxGetFramebuffer(GFX_BOTTOM, GFX_LEFT, NULL, NULL),
+		GX_TRANSFER_IN_FORMAT(GX_TRANSFER_FMT_RGB8) | GX_TRANSFER_OUT_FORMAT(GX_TRANSFER_FMT_RGB8));
+	gfxSwapBuffersGpu();
+
+	gspWaitForEvent(GSPGPU_EVENT_VBlank0, false);
 }
