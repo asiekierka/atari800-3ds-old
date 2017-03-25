@@ -48,7 +48,7 @@
 #include <zlib.h>
 #endif
 
-#ifdef DREAMCAST
+#if defined(DREAMCAST) || defined(_3DS)
 extern int Atari_POT(int);
 #else
 #define Atari_POT(x) 228

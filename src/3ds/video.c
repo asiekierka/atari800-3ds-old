@@ -51,7 +51,6 @@ static u32 *texBuf;
 VIDEOMODE_MODE_t N3DS_VIDEO_mode;
 static int ctable[256];
 
-
 void N3DS_VIDEO_PaletteUpdate()
 {
 	int i;

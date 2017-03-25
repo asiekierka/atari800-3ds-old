@@ -396,11 +396,11 @@ int Atari_POT(int num)
 
 		hidScanInput();
 		hidCircleRead(&pos);
-		int val = caxis ? pos.dy : pos.dx;
-		if (val > 16) {
+		int val = caxis ? -pos.dy : pos.dx;
+		if (val > 10) {
 			return (INPUT_joy_5200_max - INPUT_joy_5200_center) * val / 0x9C + INPUT_joy_5200_center;
-		} else if (val < -16) {
-			return (INPUT_joy_5200_min - INPUT_joy_5200_center) * val / 0x9C + INPUT_joy_5200_center;
+		} else if (val < -10) {
+			return (INPUT_joy_5200_min - INPUT_joy_5200_center) * (-val) / 0x9C + INPUT_joy_5200_center;
 		} else {
 			return INPUT_joy_5200_center;
 		}
