@@ -275,6 +275,9 @@ int PLATFORM_Keyboard(void)
 		if (kDown & KEY_R)
 			return AKEY_WARMSTART;
 	} else if (Atari800_machine_type == Atari800_MACHINE_5200) {
+		// second fire key
+		INPUT_key_shift = (kDown & KEY_B) ? 1 : 0;
+
 		if (kHeld & KEY_START)
 			return AKEY_5200_START;
 		if (kHeld & KEY_SELECT)
