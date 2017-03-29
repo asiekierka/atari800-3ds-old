@@ -42,14 +42,21 @@
 
 static bool PLATFORM_IsNew3DS;
 
+extern int dpad_as_keyboard;
+
 int PLATFORM_Configure(char *option, char *parameters)
 {
+	if (strcmp(option, "N3DS_DPAD_MODE") == 0)
+	{
+		sscanf(parameters, "%d", &dpad_as_keyboard);
+		return 1;
+	}
 	return 0;
 }
 
 void PLATFORM_ConfigSave(FILE *fp)
 {
-
+	fprintf(fp, "N3DS_DPAD_MODE=%d\n", dpad_as_keyboard);
 }
 
 int PLATFORM_Initialise(int *argc, char *argv[])

@@ -373,7 +373,7 @@
 /* #undef NTSC_FILTER */
 
 /* Define to the address where bug reports for this package should be sent. */
-#define PACKAGE_BUGREPORT "pstehlik@sophics.cz"
+#define PACKAGE_BUGREPORT "kontakt@asie.pl"
 
 /* Define to the full name of this package. */
 #define PACKAGE_NAME "Atari800"
@@ -391,7 +391,7 @@
 #define PACKAGE_VERSION "3.1.0"
 
 /* Define to use page-based attribute array. */
-/* #undef PAGED_ATTRIB */
+#define PAGED_ATTRIB 1
 
 /* Use accurate PAL color blending. */
 #define PAL_BLENDING 1
@@ -466,10 +466,10 @@
 #define SUPPORTS_CHANGE_VIDEOMODE 1
 
 /* Save additional config file options. */
-/* #define SUPPORTS_PLATFORM_CONFIGSAVE 1 */
+#define SUPPORTS_PLATFORM_CONFIGSAVE 1
 
 /* Additional config file options. */
-/* #define SUPPORTS_PLATFORM_CONFIGURE 1 */
+#define SUPPORTS_PLATFORM_CONFIGURE 1
 
 /* Update the Palette if it changed. */
 #define SUPPORTS_PLATFORM_PALETTEUPDATE 1
@@ -517,7 +517,7 @@
 #define VOICEBOX 1
 
 /* Define to allow volume only sound. */
-#define VOL_ONLY_SOUND 1
+/* #undef VOL_ONLY_SOUND */
 
 /* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most
    significant byte first (like Motorola and SPARC, unlike Intel). */

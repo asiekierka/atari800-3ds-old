@@ -159,6 +159,10 @@ extern void do_hz_test(void);
 #endif /* HZ_TEST */
 #endif /* DREAMCAST */
 
+#ifdef _3DS
+extern int dpad_as_keyboard;
+#endif /* _3DS */
+
 #ifdef RPI
 extern int op_filtering;
 extern float op_zoom;
@@ -3522,7 +3526,7 @@ static void ControllerConfiguration(void)
 	};
 #endif
 
-#if !defined(_WIN32_WCE) && !defined(DREAMCAST)
+#if !defined(_WIN32_WCE) && !defined(DREAMCAST) && !defined(_3DS)
 	static const UI_tMenuItem mouse_mode_menu_array[] = {
 		UI_MENU_ACTION(0, "None"),
 		UI_MENU_ACTION(1, "Paddles"),
@@ -3539,6 +3543,15 @@ static void ControllerConfiguration(void)
 	static char mouse_port_status[2] = { '1', '\0' };
 	static char mouse_speed_status[2] = { '1', '\0' };
 #endif
+
+#if defined(_3DS)
+	static const UI_tMenuItem dpad_map_menu_array[] = {
+		UI_MENU_ACTION(0, "Joystick"),
+		UI_MENU_ACTION(1, "Keyboard"),
+		UI_MENU_END
+	};
+#endif
+
 	static UI_tMenuItem menu_array[] = {
 		UI_MENU_ACTION(0, "Joystick autofire:"),
 		UI_MENU_CHECK(1, "Enable MultiJoy4:"),
@@ -3548,6 +3561,8 @@ static void ControllerConfiguration(void)
 		UI_MENU_CHECK(9, "Emulate Paddles:"),
 		UI_MENU_ACTION(10, "Joystick/D-Pad configuration"),
 		UI_MENU_ACTION(11, "Button configuration"),
+#elif defined(_3DS)
+		UI_MENU_SUBMENU_SUFFIX(9, "D-Pad maps to:", NULL),
 #else
 		UI_MENU_SUBMENU_SUFFIX(2, "Mouse device: ", NULL),
 		UI_MENU_SUBMENU_SUFFIX(3, "Mouse port:", mouse_port_status),
@@ -3587,6 +3602,8 @@ static void ControllerConfiguration(void)
 		SetItemChecked(menu_array, 5, virtual_joystick);
 #elif defined(DREAMCAST)
 		SetItemChecked(menu_array, 9, emulate_paddles);
+#elif defined(_3DS)
+		menu_array[2].suffix = dpad_map_menu_array[dpad_as_keyboard].item;
 #else
 		menu_array[2].suffix = mouse_mode_menu_array[INPUT_mouse_mode].item;
 		mouse_port_status[0] = (char) ('1' + INPUT_mouse_port);
@@ -3633,6 +3650,12 @@ static void ControllerConfiguration(void)
 			break;
 		case 11:
 			ButtonConfiguration();
+			break;
+#elif defined(_3DS)
+		case 9:
+			option2 = UI_driver->fSelect(NULL, UI_SELECT_POPUP, dpad_as_keyboard, dpad_map_menu_array, NULL);
+			if (option2 >= 0)
+				dpad_as_keyboard = option2;
 			break;
 #else
 		case 2:
