@@ -64,14 +64,33 @@ void N3DS_VIDEO_PaletteUpdate()
 void N3DS_RenderNormal(u8 *src, u32 *dest)
 {
 	int x, y;
-	int spitch = Screen_WIDTH - VIDEOMODE_src_width;
-	int dpitch = 512 - VIDEOMODE_src_width;
+	int dpitch = 512 - Screen_WIDTH;
+#ifdef DIRTYRECT
+	UBYTE *dirtyptr = Screen_dirty;
+#endif
 
-	for (y = 0; y < VIDEOMODE_src_height; y++) {
-		for (x = 0; x < VIDEOMODE_src_width; x++) {
+	for (y = 0; y < Screen_HEIGHT; y++) {
+#ifdef DIRTYRECT
+		for (x = 0; x < Screen_WIDTH / 8; x++) {
+			if (dirtyptr++) {
+				*(dest++) = ctable[*(src++)];
+				*(dest++) = ctable[*(src++)];
+				*(dest++) = ctable[*(src++)];
+				*(dest++) = ctable[*(src++)];
+				*(dest++) = ctable[*(src++)];
+				*(dest++) = ctable[*(src++)];
+				*(dest++) = ctable[*(src++)];
+				*(dest++) = ctable[*(src++)];
+			} else {
+				dest += 8;
+				src += 8;
+			}
+		}
+#else
+		for (x = 0; x < Screen_WIDTH; x++) {
 			*(dest++) = ctable[*(src++)];
 		}
-		src += spitch;
+#endif
 		dest += dpitch;
 	}
 }
@@ -124,11 +143,11 @@ void N3DS_ExitVideo(void)
 
 void PLATFORM_PaletteUpdate(void)
 {
+	N3DS_VIDEO_PaletteUpdate();
 #ifdef PAL_BLENDING
 	if (N3DS_VIDEO_mode == VIDEOMODE_MODE_NORMAL && ARTIFACT_mode == ARTIFACT_PAL_BLEND)
 		PAL_BLENDING_UpdateLookup();
 #endif
-	N3DS_VIDEO_PaletteUpdate();
 }
 
 void PLATFORM_GetPixelFormat(PLATFORM_pixel_format_t *format)
@@ -220,12 +239,11 @@ void PLATFORM_DisplayScreen(void)
 	float xmin, ymin, xmax, ymax, txmin, tymin, txmax, tymax;
 
 	src = (u8*) Screen_atari;
-	src += Screen_WIDTH * VIDEOMODE_src_offset_top + VIDEOMODE_src_offset_left;
 	dest = texBuf;
 
 #ifdef PAL_BLENDING
 	if (N3DS_VIDEO_mode == VIDEOMODE_MODE_NORMAL && ARTIFACT_mode == ARTIFACT_PAL_BLEND)
-		PAL_BLENDING_Blit32(dest, src, tex.width, VIDEOMODE_src_width, VIDEOMODE_src_height, VIDEOMODE_src_offset_top % 2);
+		PAL_BLENDING_Blit32(dest, src, tex.width, Screen_WIDTH, Screen_HEIGHT, 0);
 	else
 #endif
 		N3DS_RenderNormal(src, dest);
@@ -251,10 +269,10 @@ void PLATFORM_DisplayScreen(void)
 	ymin = (240 - VIDEOMODE_dest_height) / 2.0f;
 	xmax = xmin + VIDEOMODE_dest_width;
 	ymax = ymin + VIDEOMODE_dest_height;
-	txmax = ((float) VIDEOMODE_src_width / tex.width);
-	txmin = 0.0f;
-	tymin = ((float) VIDEOMODE_src_height / tex.height);
-	tymax = 0.0f;
+	txmax = ((float) (VIDEOMODE_src_offset_left + VIDEOMODE_src_width) / tex.width);
+	txmin = ((float) VIDEOMODE_src_offset_left / tex.width);
+	tymin = ((float) (VIDEOMODE_src_offset_top + VIDEOMODE_src_height) / tex.height);
+	tymax = ((float) VIDEOMODE_src_offset_top / tex.height);
 
 	C3D_RenderBufClear(&target_top);
 	C3D_RenderBufBind(&target_top);
@@ -284,6 +302,4 @@ void PLATFORM_DisplayScreen(void)
 	C3D_RenderBufTransfer(&target_bottom, (u32*) gfxGetFramebuffer(GFX_BOTTOM, GFX_LEFT, NULL, NULL),
 		GX_TRANSFER_IN_FORMAT(GX_TRANSFER_FMT_RGB8) | GX_TRANSFER_OUT_FORMAT(GX_TRANSFER_FMT_RGB8));
 	gfxSwapBuffersGpu();
-
-	gspWaitForEvent(GSPGPU_EVENT_VBlank0, false);
 }

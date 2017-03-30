@@ -41,7 +41,7 @@
 /* #undef DIRECTX */
 
 /* Define to use dirty screen partial repaints. */
-/* #undef DIRTYRECT */
+#define DIRTYRECT 1
 
 /* Define to use back slash as directory separator. */
 /* #undef DIR_SEP_BACKSLASH */
