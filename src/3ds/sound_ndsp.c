@@ -71,7 +71,7 @@ void N3DS_SoundCallback(void* dud)
 		u32 ilen = flen >> 2;
 		u32* invbuf = (u32*) N3DS_audioBuf[N3DS_soundFillBlock].data_vaddr;
 
-		if (N3DS_sampleSize == 2)
+		if (N3DS_sound->sample_size > 1)
 		{
 			Sound_Callback((u8*) N3DS_audioBuf[N3DS_soundFillBlock].data_pcm8, flen);
 			for(int i = 0; i < ilen; i++)
@@ -139,7 +139,7 @@ void PLATFORM_SoundContinue(void)
 	memset(N3DS_audioBuf, 0, sizeof(N3DS_audioBuf));
 	N3DS_audioBuf[0].data_vaddr = &N3DS_audioData[0];
 	N3DS_audioBuf[0].nsamples = N3DS_bufferSize;
-	N3DS_audioBuf[1].data_vaddr = &N3DS_audioData[N3DS_bufferSize];
+	N3DS_audioBuf[1].data_vaddr = &N3DS_audioData[N3DS_bufferSize * N3DS_sampleSize];
 	N3DS_audioBuf[1].nsamples = N3DS_bufferSize;
 
 	N3DS_ClearAudioData();
