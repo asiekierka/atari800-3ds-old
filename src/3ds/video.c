@@ -44,12 +44,27 @@
 
 static C3D_Tex tex, kbd_display;
 static C3D_Mtx proj_top, proj_bottom;
-static C3D_RenderBuf target_top, target_bottom;
+static C3D_RenderTarget *target_top, *target_bottom;
 static struct ctr_shader_data shader;
 
 static u32 *texBuf;
 VIDEOMODE_MODE_t N3DS_VIDEO_mode;
 static int ctable[256];
+
+static u8 morton_lut[64] = {
+        0x00, 0x01, 0x04, 0x05, 0x10, 0x11, 0x14, 0x15,
+	0x02, 0x03, 0x06, 0x07, 0x12, 0x13, 0x16, 0x17,
+        0x08, 0x09, 0x0c, 0x0d, 0x18, 0x19, 0x1c, 0x1d,
+	0x0a, 0x0b, 0x0e, 0x0f, 0x1a, 0x1b, 0x1e, 0x1f,
+        0x20, 0x21, 0x24, 0x25, 0x30, 0x31, 0x34, 0x35,
+	0x22, 0x23, 0x26, 0x27, 0x32, 0x33, 0x36, 0x37,
+        0x28, 0x29, 0x2c, 0x2d, 0x38, 0x39, 0x3c, 0x3d,
+	0x2a, 0x2b, 0x2e, 0x2f, 0x3a, 0x3b, 0x3e, 0x3f
+};
+
+static s8 morton_delta_y[8] = {
+        0x02, 0x06, 0x02, 0x16, 0x02, 0x06, 0x02, 0x16
+};
 
 void N3DS_VIDEO_PaletteUpdate()
 {
@@ -61,7 +76,61 @@ void N3DS_VIDEO_PaletteUpdate()
 	}
 }
 
-void N3DS_RenderNormal(u8 *src, u32 *dest)
+static void N3DS_RenderMorton8to32(u8 *src, u32 *dest)
+{
+	int x, y, xm, ym;
+	u8 *rsrc;
+	u32 *rdest;
+
+	for (y = 0; y < VIDEOMODE_src_height; y+=8) {
+		rdest = dest + (y << 9);
+		for (x = 0; x < VIDEOMODE_src_width; x+=8) {
+			rsrc = src + (Screen_WIDTH * y) + x;
+			for (ym = 0; ym < 8; ym++) {
+				rdest[0x00] = ctable[*(rsrc++)];
+				rdest[0x01] = ctable[*(rsrc++)];
+				rdest[0x04] = ctable[*(rsrc++)];
+				rdest[0x05] = ctable[*(rsrc++)];
+				rdest[0x10] = ctable[*(rsrc++)];
+				rdest[0x11] = ctable[*(rsrc++)];
+				rdest[0x14] = ctable[*(rsrc++)];
+				rdest[0x15] = ctable[*(rsrc)];
+
+				rsrc += (Screen_WIDTH - 7);
+				rdest += morton_delta_y[ym];
+			}
+		}
+	}
+}
+
+static void N3DS_RenderMorton32to32(u32 *src, u32 *dest, u32 pitch, u32 width, u32 height)
+{
+	int x, y, xm, ym;
+	u32 *rsrc;
+	u32 *rdest;
+
+	for (y = 0; y < height; y+=8) {
+		rdest = dest + (y << 9);
+		for (x = 0; x < width; x+=8) {
+			rsrc = src + (pitch * y) + x;
+			for (ym = 0; ym < 8; ym++) {
+				rdest[0x00] = *(rsrc++);
+				rdest[0x01] = *(rsrc++);
+				rdest[0x04] = *(rsrc++);
+				rdest[0x05] = *(rsrc++);
+				rdest[0x10] = *(rsrc++);
+				rdest[0x11] = *(rsrc++);
+				rdest[0x14] = *(rsrc++);
+				rdest[0x15] = *(rsrc);
+
+				rsrc += (pitch - 7);
+				rdest += morton_delta_y[ym];
+			}
+		}
+	}
+}
+
+static void N3DS_RenderNormal(u8 *src, u32 *dest)
 {
 	int x, y;
 	int spitch = Screen_WIDTH - VIDEOMODE_src_width;
@@ -84,11 +153,17 @@ void N3DS_InitVideo(void)
 	gfxSet3D(false);
 	C3D_Init(C3D_DEFAULT_CMDBUF_SIZE);
 
-	C3D_RenderBufInit(&target_top, 240, 400, GPU_RB_RGB8, 0);
-	C3D_RenderBufInit(&target_bottom, 240, 320, GPU_RB_RGB8, 0);
+	target_top = C3D_RenderTargetCreate(240, 400, GPU_RB_RGB8, GPU_RB_DEPTH16);
+	target_bottom = C3D_RenderTargetCreate(240, 320, GPU_RB_RGB8, GPU_RB_DEPTH16);
+	C3D_RenderTargetSetClear(target_top, C3D_CLEAR_ALL, 0, 0);
+	C3D_RenderTargetSetClear(target_bottom, C3D_CLEAR_ALL, 0, 0);
+	C3D_RenderTargetSetOutput(target_top, GFX_TOP, GFX_LEFT,
+		GX_TRANSFER_IN_FORMAT(GX_TRANSFER_FMT_RGB8) | GX_TRANSFER_OUT_FORMAT(GX_TRANSFER_FMT_RGB8));
+	C3D_RenderTargetSetOutput(target_bottom, GFX_BOTTOM, GFX_LEFT,
+		GX_TRANSFER_IN_FORMAT(GX_TRANSFER_FMT_RGB8) | GX_TRANSFER_OUT_FORMAT(GX_TRANSFER_FMT_RGB8));
 
 	C3D_TexInit(&tex, 512, 256, GPU_RGBA8);
-	texBuf = linearAlloc(512 * 256 * 4);
+	texBuf = malloc(Screen_WIDTH * Screen_HEIGHT * 4);
 
 	ctr_load_png(&kbd_display, "romfs:/kbd_display.png", TEXTURE_TARGET_VRAM);
 
@@ -110,13 +185,13 @@ void N3DS_InitVideo(void)
 
 void N3DS_ExitVideo(void)
 {
-	linearFree(texBuf);
+	free(texBuf);
 
 	C3D_TexDelete(&kbd_display);
 	C3D_TexDelete(&tex);
 
-	C3D_RenderBufDelete(&target_top);
-	C3D_RenderBufDelete(&target_bottom);
+	C3D_RenderTargetDelete(target_top);
+	C3D_RenderTargetDelete(target_bottom);
 
 	C3D_Fini();
 	gfxExit();
@@ -154,7 +229,6 @@ void PLATFORM_SetVideoMode(VIDEOMODE_resolution_t const *res, int windowed, VIDE
 	N3DS_VIDEO_mode = mode;
 
 	PLATFORM_PaletteUpdate();
-	memset(texBuf, 0, tex.width * tex.height * 4);
 	PLATFORM_DisplayScreen();
 }
 
@@ -219,30 +293,26 @@ void PLATFORM_DisplayScreen(void)
 	u32 *dest;
 	float xmin, ymin, xmax, ymax, txmin, tymin, txmax, tymax;
 
+	if (!C3D_FrameBegin(0))
+		return false;
+
 	src = (u8*) Screen_atari;
 	src += Screen_WIDTH * VIDEOMODE_src_offset_top + VIDEOMODE_src_offset_left;
-	dest = texBuf;
+	dest = (u32*) tex.data;
 
 #ifdef PAL_BLENDING
 	if (N3DS_VIDEO_mode == VIDEOMODE_MODE_NORMAL && ARTIFACT_mode == ARTIFACT_PAL_BLEND)
-		PAL_BLENDING_Blit32(dest, src, tex.width, VIDEOMODE_src_width, VIDEOMODE_src_height, VIDEOMODE_src_offset_top % 2);
+	{
+		PAL_BLENDING_Blit32(texBuf, src, Screen_WIDTH, VIDEOMODE_src_width, VIDEOMODE_src_height, VIDEOMODE_src_offset_top % 2);
+		N3DS_RenderMorton32to32(texBuf, dest, Screen_WIDTH, VIDEOMODE_src_width, VIDEOMODE_src_height);
+	}
 	else
 #endif
-		N3DS_RenderNormal(src, dest);
+		N3DS_RenderMorton8to32(src, dest);
 
-	GSPGPU_FlushDataCache(texBuf, 512 * 256 * 4);
+	GSPGPU_FlushDataCache(dest, 512 * 256 * 4);
 
-	const u32 sdtFlags = (GX_TRANSFER_FLIP_VERT(1) | GX_TRANSFER_OUT_TILED(1) | GX_TRANSFER_RAW_COPY(0) |
-		GX_TRANSFER_IN_FORMAT(GX_TRANSFER_FMT_RGBA8) | GX_TRANSFER_OUT_FORMAT(GX_TRANSFER_FMT_RGBA8) |
-		GX_TRANSFER_SCALING(GX_TRANSFER_SCALE_NO));
-
-	GX_DisplayTransfer(texBuf, GX_BUFFER_DIM(512, 256), tex.data,
-		GX_BUFFER_DIM(tex.width, tex.height), sdtFlags);
-
-	gspWaitForPPF();
-
-	C3D_RenderBufClear(&target_bottom);
-	C3D_RenderBufBind(&target_bottom);
+	C3D_FrameDrawOn(target_bottom);
 	C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, shader.proj_loc, &proj_bottom);
 	C3D_TexBind(0, &kbd_display);
 	N3DS_DrawKeyboard(&kbd_display);
@@ -253,11 +323,10 @@ void PLATFORM_DisplayScreen(void)
 	ymax = ymin + VIDEOMODE_dest_height;
 	txmax = ((float) VIDEOMODE_src_width / tex.width);
 	txmin = 0.0f;
-	tymin = ((float) VIDEOMODE_src_height / tex.height);
-	tymax = 0.0f;
+	tymin = 1.0f - ((float) VIDEOMODE_src_height / tex.height);
+	tymax = 1.0f;
 
-	C3D_RenderBufClear(&target_top);
-	C3D_RenderBufBind(&target_top);
+	C3D_FrameDrawOn(target_top);
 	C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, shader.proj_loc, &proj_top);
 
 	C3D_TexBind(0, &tex);
@@ -275,15 +344,5 @@ void PLATFORM_DisplayScreen(void)
 		C3D_ImmSendAttrib(txmax, tymax, 0.0f, 0.0f);
 	C3D_ImmDrawEnd();
 
-	C3D_Flush();
-
-	C3D_RenderBufTransfer(&target_top, (u32*) gfxGetFramebuffer(GFX_TOP, GFX_LEFT, NULL, NULL),
-		GX_TRANSFER_IN_FORMAT(GX_TRANSFER_FMT_RGB8) | GX_TRANSFER_OUT_FORMAT(GX_TRANSFER_FMT_RGB8));
-	C3D_RenderBufTransfer(&target_top, (u32*) gfxGetFramebuffer(GFX_TOP, GFX_RIGHT, NULL, NULL),
-		GX_TRANSFER_IN_FORMAT(GX_TRANSFER_FMT_RGB8) | GX_TRANSFER_OUT_FORMAT(GX_TRANSFER_FMT_RGB8));
-	C3D_RenderBufTransfer(&target_bottom, (u32*) gfxGetFramebuffer(GFX_BOTTOM, GFX_LEFT, NULL, NULL),
-		GX_TRANSFER_IN_FORMAT(GX_TRANSFER_FMT_RGB8) | GX_TRANSFER_OUT_FORMAT(GX_TRANSFER_FMT_RGB8));
-	gfxSwapBuffersGpu();
-
-	gspWaitForEvent(GSPGPU_EVENT_VBlank0, false);
+	C3D_FrameEnd(0);
 }

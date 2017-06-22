@@ -1,7 +1,7 @@
 BasicInfo:
   Title                   : "atari800"
-  ProductCode             : "CTR-P-AXED"
-  Logo                    : Nintendo # Nintendo / Licensed / Distributed / iQue / iQueForSystem
+  ProductCode             : "HB-AXED"
+  Logo                    : Homebrew # Nintendo / Licensed / Distributed / iQue / iQueForSystem
 
 RomFs:
   RootPath: src/3ds/romfs
@@ -34,37 +34,9 @@ AccessControlInfo:
   # FS:USER Archive Access Permissions
   # Uncomment as required
   FileSystemAccess:
-   - CategorySystemApplication
-   - CategoryHardwareCheck
-   - CategoryFileSystemTool
    - Debug
-   - TwlCardBackup
-   - TwlNandData
-   - Boss
    - DirectSdmc
-   - Core
-   - CtrNandRo
-   - CtrNandRw
-   - CtrNandRoWrite
-   - CategorySystemSettings
-   - CardBoard
-   - ExportImportIvs
    - DirectSdmcWrite
-   - SwitchCleanup
-   - SaveDataMove
-   - Shop
-   - Shell
-   - CategoryHomeMenu
-   - SeedDB
-  IoAccessControl:
-   - FsMountNand
-   - FsMountNandRoWrite
-   - FsMountTwln
-   - FsMountWnand
-   - FsMountCardSpi
-   - UseSdif3
-   - CreateSeed
-   - UseCardSpi
 
   # Process Settings
   MemoryType                    : Application # Application/System/Base
@@ -74,7 +46,7 @@ AccessControlInfo:
   Priority                      : 16
   MaxCpu                        : 0x9E # Default
   HandleTableSize               : 0x200
-  DisableDebug                  : false
+  DisableDebug                  : true
   EnableForceDebug              : false
   CanWriteSharedPage            : true
   CanUsePrivilegedPriority      : false
