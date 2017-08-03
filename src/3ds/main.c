@@ -38,6 +38,7 @@
 #ifdef SOUND
 #include "../sound.h"
 #endif
+#include "video.h"
 #include "videomode.h"
 
 static bool PLATFORM_IsNew3DS;
@@ -85,6 +86,8 @@ int PLATFORM_Exit(int run_monitor)
 	} else {
 		N3DS_ExitVideo();
 
+		acExit();
+
 		ptmSysmExit();
 		romfsExit();
 	}
@@ -99,6 +102,8 @@ int main(int argc, char **argv)
 	ptmSysmInit();
 	osSetSpeedupEnable(1);
 	APT_SetAppCpuTimeLimit(80);
+
+	acInit();
 
 	// set config defaults
 	PLATFORM_IsNew3DS = PTMSYSM_CheckNew3DS();

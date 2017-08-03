@@ -51,6 +51,9 @@ static u32 *texBuf;
 VIDEOMODE_MODE_t N3DS_VIDEO_mode;
 static int ctable[256];
 
+// #define SOFTWARE_INTERLAVE
+
+#ifdef SOFTWARE_INTERLEAVE
 static u8 morton_lut[64] = {
         0x00, 0x01, 0x04, 0x05, 0x10, 0x11, 0x14, 0x15,
 	0x02, 0x03, 0x06, 0x07, 0x12, 0x13, 0x16, 0x17,
@@ -65,16 +68,6 @@ static u8 morton_lut[64] = {
 static s8 morton_delta_y[8] = {
         0x02, 0x06, 0x02, 0x16, 0x02, 0x06, 0x02, 0x16
 };
-
-void N3DS_VIDEO_PaletteUpdate()
-{
-	int i;
-
-	for (i = 0; i < 256; i++)
-	{
-		ctable[i] = Colours_table[i] << 8 | 0xFF;
-	}
-}
 
 static void N3DS_RenderMorton8to32(u8 *src, u32 *dest)
 {
@@ -129,6 +122,17 @@ static void N3DS_RenderMorton32to32(u32 *src, u32 *dest, u32 pitch, u32 width, u
 		}
 	}
 }
+#endif
+
+void N3DS_VIDEO_PaletteUpdate()
+{
+	int i;
+
+	for (i = 0; i < 256; i++)
+	{
+		ctable[i] = Colours_table[i] << 8 | 0xFF;
+	}
+}
 
 static void N3DS_RenderNormal(u8 *src, u32 *dest)
 {
@@ -162,8 +166,12 @@ void N3DS_InitVideo(void)
 	C3D_RenderTargetSetOutput(target_bottom, GFX_BOTTOM, GFX_LEFT,
 		GX_TRANSFER_IN_FORMAT(GX_TRANSFER_FMT_RGB8) | GX_TRANSFER_OUT_FORMAT(GX_TRANSFER_FMT_RGB8));
 
+#ifdef SOFTWARE_INTERLAVE
 	C3D_TexInit(&tex, 512, 256, GPU_RGBA8);
-	texBuf = malloc(Screen_WIDTH * Screen_HEIGHT * 4);
+#else
+	C3D_TexInit(&tex, 512, 256, GPU_RGBA8);
+#endif
+	texBuf = linearAlloc(512 * 256 * 4);
 
 	ctr_load_png(&kbd_display, "romfs:/kbd_display.png", TEXTURE_TARGET_VRAM);
 
@@ -185,7 +193,7 @@ void N3DS_InitVideo(void)
 
 void N3DS_ExitVideo(void)
 {
-	free(texBuf);
+	linearFree(texBuf);
 
 	C3D_TexDelete(&kbd_display);
 	C3D_TexDelete(&tex);
@@ -290,27 +298,56 @@ void N3DS_DrawTexture(C3D_Tex* tex, int x, int y, int tx, int ty, int width, int
 void PLATFORM_DisplayScreen(void)
 {
 	u8 *src;
+#ifdef SOFTWARE_INTERLAVE
 	u32 *dest;
+#endif
 	float xmin, ymin, xmax, ymax, txmin, tymin, txmax, tymax;
-
-	if (!C3D_FrameBegin(0))
-		return false;
 
 	src = (u8*) Screen_atari;
 	src += Screen_WIDTH * VIDEOMODE_src_offset_top + VIDEOMODE_src_offset_left;
+#ifdef SOFTWARE_INTERLAVE
 	dest = (u32*) tex.data;
+
+	if (!C3D_FrameBegin(0))
+		return;
+#endif
 
 #ifdef PAL_BLENDING
 	if (N3DS_VIDEO_mode == VIDEOMODE_MODE_NORMAL && ARTIFACT_mode == ARTIFACT_PAL_BLEND)
 	{
+#ifdef SOFTWARE_INTERLAVE
 		PAL_BLENDING_Blit32(texBuf, src, Screen_WIDTH, VIDEOMODE_src_width, VIDEOMODE_src_height, VIDEOMODE_src_offset_top % 2);
 		N3DS_RenderMorton32to32(texBuf, dest, Screen_WIDTH, VIDEOMODE_src_width, VIDEOMODE_src_height);
+#else
+		PAL_BLENDING_Blit32(texBuf, src, tex.width, VIDEOMODE_src_width, VIDEOMODE_src_height, VIDEOMODE_src_offset_top % 2);
+#endif
 	}
 	else
 #endif
+	{
+#ifdef SOFTWARE_INTERLAVE
 		N3DS_RenderMorton8to32(src, dest);
+#else
+		N3DS_RenderNormal(src, texBuf);
+#endif
+	}
 
+#ifdef SOFTWARE_INTERLAVE
 	GSPGPU_FlushDataCache(dest, 512 * 256 * 4);
+#else
+	GSPGPU_FlushDataCache(texBuf, 512 * 256 * 4);
+	C3D_SafeDisplayTransfer(texBuf, GX_BUFFER_DIM(512, 256), tex.data, GX_BUFFER_DIM(tex.width, tex.height),
+		(GX_TRANSFER_FLIP_VERT(1) | GX_TRANSFER_OUT_TILED(1) | GX_TRANSFER_RAW_COPY(0) |
+		GX_TRANSFER_IN_FORMAT(GX_TRANSFER_FMT_RGBA8) | GX_TRANSFER_OUT_FORMAT(GX_TRANSFER_FMT_RGBA8) |
+		GX_TRANSFER_SCALING(GX_TRANSFER_SCALE_NO))
+	);
+	gspWaitForPPF();
+
+	if (!C3D_FrameBegin(0))
+		return;
+
+	GSPGPU_FlushDataCache(tex.data, 512 * 256 * 4);
+#endif
 
 	C3D_FrameDrawOn(target_bottom);
 	C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, shader.proj_loc, &proj_bottom);
@@ -323,8 +360,13 @@ void PLATFORM_DisplayScreen(void)
 	ymax = ymin + VIDEOMODE_dest_height;
 	txmax = ((float) VIDEOMODE_src_width / tex.width);
 	txmin = 0.0f;
+#ifdef SOFTWARE_INTERLEAVE
 	tymin = 1.0f - ((float) VIDEOMODE_src_height / tex.height);
 	tymax = 1.0f;
+#else
+	tymin = ((float) VIDEOMODE_src_height / tex.height);
+	tymax = 0.0f;
+#endif
 
 	C3D_FrameDrawOn(target_top);
 	C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, shader.proj_loc, &proj_top);

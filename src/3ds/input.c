@@ -32,6 +32,7 @@
 #include "log.h"
 #include "platform.h"
 #include "ui.h"
+#include "video.h"
 
 int key_control;
 int current_key_down = AKEY_NONE;
@@ -39,6 +40,7 @@ int dpad_as_keyboard = 1;
 u64 key_down_time = 0;
 
 #define WARMSTART_HOLD_TIME 3*1000
+#define AKEY_WAS_SHIFT_CTRL -992
 
 touch_area_t N3DS_touch_areas_key[] = {
 	{ 2, 130, 22, 22, AKEY_ESCAPE, 0 },
@@ -174,19 +176,7 @@ void N3DS_DrawKeyboard(C3D_Tex *tex)
 
 	N3DS_DrawTexture(tex, 0, 0, 0, 0, 320, 240);
 
-	if (INPUT_key_shift != 0)
-	{
-		N3DS_DrawTexture(tex, 2, 194, 322, 194, 43, 22);
-		N3DS_DrawTexture(tex, 254, 194, 574, 194, 43, 22);
-	}
-
-	if (N3DS_IsControlPressed())
-	{
-		N3DS_DrawTexture(tex, 2, 172, 322, 172, 37, 22);
-	}
-
 	int key_down = current_key_down;
-	if (key_down == AKEY_SHFT || key_down == AKEY_CTRL) key_down = AKEY_NONE;
 	if (key_down >= 0) key_down &= ~AKEY_SHFTCTRL;
 
 	hidTouchRead(&pos);
@@ -194,6 +184,8 @@ void N3DS_DrawKeyboard(C3D_Tex *tex)
 	{
 		touch_area_t* area = &keyTable[i];
 		if (key_down == area->keycode
+                        || (INPUT_key_shift != 0 && area->keycode == AKEY_SHFT)
+                        || (N3DS_IsControlPressed() && area->keycode == AKEY_CTRL)
 			|| (isTouch && (
 				(area->keycode == AKEY_START) ||
 				(area->keycode == AKEY_SELECT) ||
@@ -243,7 +235,7 @@ int PLATFORM_Keyboard(void)
 
 	if (kUp & KEY_TOUCH)
 	{
-		if (current_key_down != AKEY_CTRL && current_key_down != AKEY_SHFT)
+		if (current_key_down != AKEY_WAS_SHIFT_CTRL)
 		{
 			INPUT_key_shift = 0;
 			key_control = 0;
@@ -316,14 +308,13 @@ int PLATFORM_Keyboard(void)
 	{
 		hidTouchRead(&pos);
 		touch_area_t* keyTable = N3DS_TOUCH_AREAS;
-		int keyTableLen = N3DS_TOUCH_AREA_MAX;
 		bool down = (kDown & KEY_TOUCH) != 0;
 		bool touching = ((kDown | kHeld) & KEY_TOUCH) != 0;
 		bool refresh = false;
 
 		if (down) current_key_down = AKEY_NONE;
 
-		for (int i = 0; i < keyTableLen; i++)
+		for (int i = 0; i < N3DS_TOUCH_AREA_MAX; i++)
 		{
 			touch_area_t* area = &keyTable[i];
 			if (isKeyTouched(&pos, area))
@@ -332,21 +323,15 @@ int PLATFORM_Keyboard(void)
 				switch (area->keycode)
 				{
 					case AKEY_SHFT:
-						if (down)
-						{
-							INPUT_key_shift = 1;
-							Atari800_display_screen = TRUE;
-							current_key_down = AKEY_SHFT;
-						}
-						break;
+						if (down) Atari800_display_screen = TRUE;
+						INPUT_key_shift = 1;
+						current_key_down = AKEY_WAS_SHIFT_CTRL;
+						return AKEY_NONE;
 					case AKEY_CTRL:
-						if (down)
-						{
-							key_control = 1;
-							Atari800_display_screen = TRUE;
-							current_key_down = AKEY_CTRL;
-						}
-						break;
+						if (down) Atari800_display_screen = TRUE;
+						key_control = 1;
+						current_key_down = AKEY_WAS_SHIFT_CTRL;
+						return AKEY_NONE;
 					case AKEY_START:
 						if (touching) INPUT_key_consol &= ~INPUT_CONSOL_START;
 						break;
@@ -360,10 +345,11 @@ int PLATFORM_Keyboard(void)
 						if (down)
 						{
 							key_down_time = osGetTime();
-							current_key_down = AKEY_WARMSTART;
+							current_key_down = AKEY_NONE;
 							break;
 						} else if (touching && (osGetTime() - key_down_time) > WARMSTART_HOLD_TIME)
 						{
+							Atari800_display_screen = TRUE;
 							return AKEY_WARMSTART;
 						}
 					default:
@@ -377,10 +363,7 @@ int PLATFORM_Keyboard(void)
 		}
 
 		if (refresh) Atari800_display_screen = TRUE;
-		if (current_key_down == AKEY_SHFT || current_key_down == AKEY_CTRL || current_key_down == AKEY_WARMSTART)
-			return AKEY_NONE;
-		else
-			return current_key_down;
+		return current_key_down;
 	}
 
 	return AKEY_NONE;

@@ -421,10 +421,10 @@
 /* #undef RPI */
 
 /* Define to use R: device. */
-/* #undef R_IO_DEVICE */
+#define R_IO_DEVICE
 
 /* Define to use IP network connection with the R: device. */
-/* #undef R_NETWORK */
+#define R_NETWORK
 
 /* Define to use the host serial port with the R: device. */
 /* #undef R_SERIAL */

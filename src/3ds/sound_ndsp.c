@@ -42,8 +42,7 @@ void N3DS_ClearAudioData(void);
 
 int PLATFORM_SoundSetup(Sound_setup_t *setup)
 {
-	setup->buffer_frames &= ~3;
-	setup->sample_size = 1;
+	setup->buffer_frames = (setup->buffer_frames + 7) & (~0x07);
 
 	if (setup->buffer_frames == 0)
 	{
@@ -74,8 +73,6 @@ void N3DS_SoundCallback(void* dud)
 		if (N3DS_sound->sample_size > 1)
 		{
 			Sound_Callback((u8*) N3DS_audioBuf[N3DS_soundFillBlock].data_pcm8, flen);
-			for(int i = 0; i < ilen; i++)
-				invbuf[i] ^= 0x80008000;
 		} else
 		{
 			Sound_Callback((u8*) N3DS_audioBuf[N3DS_soundFillBlock].data_pcm8, flen);

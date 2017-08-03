@@ -85,6 +85,7 @@ SOURCES = \
 	src/pia.c \
 	src/pokey.c \
 	src/pokeysnd.c \
+	src/rdevice.c \
 	src/remez.c \
 	src/rtime.c \
 	src/screen.c \
@@ -114,7 +115,7 @@ SHADERS = \
 #---------------------------------------------------------------------------------
 ARCH	:=	-march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft
 
-CFLAGS	:=	-g -Wall -O2 -flto -mword-relocations -D_GNU_SOURCE \
+CFLAGS	:=	-g -Wall -O2 -mword-relocations -D_GNU_SOURCE \
 			-fomit-frame-pointer -ffunction-sections \
 			$(ARCH)
 
@@ -161,7 +162,7 @@ export OFILES	:=	$(addsuffix .o,$(BINFILES)) \
 
 export INCLUDE	:=	$(foreach dir,$(INCLUDES),-I$(CURDIR)/$(dir)) \
 			$(foreach dir,$(LIBDIRS),-I$(dir)/include) \
-			-I$(CURDIR)/$(BUILD) -I$(DEVKITPRO)/portlibs/3ds/include/SDL2 \
+			-I$(CURDIR)/$(BUILD) \
 			-I$(CURDIR)/src/3ds
 
 export LIBPATHS	:=	$(foreach dir,$(LIBDIRS),-L$(dir)/lib)
